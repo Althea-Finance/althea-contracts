@@ -11,10 +11,6 @@ Initialize the git submodules:
 
     git submodule update --init --recursive
 
-Install the dependencies:
-
-    forge install
-
 ### Manual installation (if default fails)
 
 Install manually the following dependencies:
