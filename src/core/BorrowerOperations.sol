@@ -22,7 +22,7 @@ import "../dependencies/DelegatedOps.sol";
 contract BorrowerOperations is PrismaBase, PrismaOwnable, DelegatedOps {
     using SafeERC20 for IERC20;
 
-    IDebtToken public immutable debtoken;
+    IDebtToken public immutable debtToken;
     address public immutable factory;
     uint256 public minNetDebt;
 
