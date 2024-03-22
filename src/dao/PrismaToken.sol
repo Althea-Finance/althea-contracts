@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "../interfaces/IERC2612.sol";
-import { OFT, IERC20, ERC20 } from "@layerzerolabs/solidity-examples/contracts/token/oft/OFT.sol";
+import { OFT, IERC20, ERC20 } from "@layerzerolabs/contracts/token/oft/OFT.sol";
 
 /**
     @title Prisma Governance Token
