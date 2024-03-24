@@ -7,10 +7,10 @@ import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
 
 /**
-    @title Prisma Incentive Voting
-    @notice Users with PRISMA balances locked in `TokenLocker` may register their
+    @title Thea Incentive Voting
+    @notice Users with THEA balances locked in `TokenLocker` may register their
             lock weights in this contract, and use this weight to vote on where
-            new PRISMA emissions will be released in the following week.
+            new THEA emissions will be released in the following week.
 
             Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
  */
@@ -83,9 +83,15 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
     // emitted each time the votes for `account` are cleared
     event ClearedVotes(address indexed account, uint256 indexed week);
 
-    constructor(address _prismaCore, ITokenLocker _tokenLocker, address _vault) SystemStart(_prismaCore) {
+    constructor(address _altheaCore, ITokenLocker _tokenLocker, address _vault) SystemStart(_altheaCore) {
         tokenLocker = _tokenLocker;
         vault = _vault;
+    }
+
+    function setTokenLocker(address _locker) external onlyOwner {
+        require(newLocker != address(0), "Invalid address");
+        require(address(tokenLocker) == address(0), "Already set");
+        tokenLocker = ITokenLocker(_locker);
     }
 
     function getAccountRegisteredLocks(
@@ -99,7 +105,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
         uint16[2][MAX_POINTS] storage storedVotes = accountLockData[account].activeVotes;
         uint256 length = votes.length;
         for (uint256 i = 0; i < length; i++) {
-            votes[i] = Vote({ id: storedVotes[i][0], points: storedVotes[i][1] });
+            votes[i] = Vote({id : storedVotes[i][0], points : storedVotes[i][1]});
         }
         return votes;
     }
@@ -392,7 +398,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
             }
 
             ITokenLocker.LockData[] memory lockData = new ITokenLocker.LockData[](1);
-            lockData[0] = ITokenLocker.LockData({ amount: amount, weeksToUnlock: MAX_LOCK_WEEKS });
+            lockData[0] = ITokenLocker.LockData({amount : amount, weeksToUnlock : MAX_LOCK_WEEKS});
             emit AccountWeightRegistered(account, week, 0, lockData);
         }
         return true;
@@ -423,7 +429,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
             }
             uint256 remainingWeeks = unlockWeek - systemWeek;
             uint256 amount = amounts[idx];
-            lockData[idx] = LockData({ amount: amount, weeksToUnlock: remainingWeeks });
+            lockData[idx] = LockData({amount : amount, weeksToUnlock : remainingWeeks});
         }
 
         return lockData;

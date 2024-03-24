@@ -65,7 +65,7 @@ contract AirdropDistributor is Ownable {
         require(amount > 0, "Nothing to sweep");
         token.transferFrom(vault, address(this), amount);
         token.approve(vault, amount);
-        IPrismaVault(vault).increaseUnallocatedSupply(amount);
+        IAltheaVault(vault).increaseUnallocatedSupply(amount);
     }
 
     function isClaimed(uint256 index) public view returns (bool) {

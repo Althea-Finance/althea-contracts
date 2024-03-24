@@ -16,7 +16,7 @@ import "../interfaces/ILiquidationManager.sol";
     @notice Deploys cloned pairs of `TroveManager` and `SortedTroves` in order to
             add new collateral types within the system.
  */
-contract Factory is PrismaOwnable {
+contract Factory is AltheaOwnable {
     using Clones for address;
 
     // fixed single-deployment contracts
@@ -46,14 +46,14 @@ contract Factory is PrismaOwnable {
     event NewDeployment(address collateral, address priceFeed, address troveManager, address sortedTroves);
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         IDebtToken _debtToken,
         IStabilityPool _stabilityPool,
         IBorrowerOperations _borrowerOperations,
         address _sortedTroves,
         address _troveManager,
         ILiquidationManager _liquidationManager
-    ) PrismaOwnable(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) {
         debtToken = _debtToken;
         stabilityPool = _stabilityPool;
         borrowerOperations = _borrowerOperations;
@@ -61,6 +61,18 @@ contract Factory is PrismaOwnable {
         sortedTrovesImpl = _sortedTroves;
         troveManagerImpl = _troveManager;
         liquidationManager = _liquidationManager;
+    }
+
+    function setDebtTokenAddress(address _debtTokenAddress) external onlyOwner {
+        require(_debtTokenAddress != address(0), "Factory: invalid debt token");
+        require(debtToken == IDebtToken(address(0)), "Factory: debt token already set");
+        debtToken = IDebtToken(_debtTokenAddress);
+    }
+
+    function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external onlyOwner {
+        require(_borrowerOperationsAddress != address(0), "Factory: invalid borrower operations");
+        require(borrowerOperations == IBorrowerOperations(address(0)), "Factory: borrower operations already set");
+        borrowerOperations = IBorrowerOperations(_borrowerOperationsAddress);
     }
 
     function troveManagerCount() external view returns (uint256) {

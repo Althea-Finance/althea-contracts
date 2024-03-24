@@ -4,9 +4,9 @@ pragma solidity 0.8.19;
 
 import "../dependencies/PrismaOwnable.sol";
 import "../dependencies/SystemStart.sol";
-import "../interfaces/IPrismaCore.sol";
+import "../interfaces/IAltheaCore.sol";
 import "../interfaces/IIncentiveVoting.sol";
-import "../interfaces/IPrismaToken.sol";
+import "../interfaces/ITheaToken.sol";
 
 /**
     @title Prisma Token Locker
@@ -14,7 +14,7 @@ import "../interfaces/IPrismaToken.sol";
             which is used within `AdminVoting` and `IncentiveVoting` to vote on
             core protocol operations.
  */
-contract TokenLocker is PrismaOwnable, SystemStart {
+contract TokenLocker is AltheaOwnable, SystemStart {
     // The maximum number of weeks that tokens may be locked for. Also determines the maximum
     // number of active locks that a single account may open. Weight is calculated as:
     // `[balance] * [weeks to unlock]`. Weights are stored as `uint40` and balances as `uint32`,
@@ -30,9 +30,9 @@ contract TokenLocker is PrismaOwnable, SystemStart {
     // cannot be violated or the system could break due to overflow.
     uint256 public immutable lockToTokenRatio;
 
-    IPrismaToken public immutable lockToken;
+    ITheaToken public immutable lockToken;
     IIncentiveVoting public immutable incentiveVoter;
-    IPrismaCore public immutable prismaCore;
+    IAltheaCore public immutable altheaCore;
     address public immutable deploymentManager;
 
     bool public penaltyWithdrawalsEnabled;
@@ -61,6 +61,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         uint256 amount;
         uint256 weeksToUnlock;
     }
+
     struct ExtendLockData {
         uint256 amount;
         uint256 currentWeeks;
@@ -106,15 +107,15 @@ contract TokenLocker is PrismaOwnable, SystemStart {
     );
 
     constructor(
-        address _prismaCore,
-        IPrismaToken _token,
+        address _altheaCore,
+        ITheaToken _token,
         IIncentiveVoting _voter,
         address _manager,
         uint256 _lockToTokenRatio
-    ) SystemStart(_prismaCore) PrismaOwnable(_prismaCore) {
+    ) SystemStart(_altheaCore) AltheaOwnable(_altheaCore) {
         lockToken = _token;
         incentiveVoter = _voter;
-        prismaCore = IPrismaCore(_prismaCore);
+        altheaCore = IAltheaCore(_altheaCore);
         deploymentManager = _manager;
 
         lockToTokenRatio = _lockToTokenRatio;
@@ -125,6 +126,12 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         _;
     }
 
+    function setIncentiveVoter(address _voter) external onlyOwner {
+        require(_voter != address(0), "Invalid address");
+        require(incentiveVoter == IIncentiveVoting(0), "incentiveVoter address already set");
+        incentiveVoter = IIncentiveVoting(_voter);
+    }
+
     function setAllowPenaltyWithdrawAfter(
         uint256 _timestamp
     ) external returns (bool) {
@@ -132,7 +139,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         require(allowPenaltyWithdrawAfter == 0, "Already set");
         require(
             _timestamp > block.timestamp &&
-                _timestamp < block.timestamp + 13 weeks,
+            _timestamp < block.timestamp + 13 weeks,
             "Invalid timestamp"
         );
         allowPenaltyWithdrawAfter = _timestamp;
@@ -173,7 +180,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             uint256 systemWeek = getWeek();
 
             uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-                (accountWeek % 256);
+            (accountWeek % 256);
 
             while (accountWeek < systemWeek) {
                 accountWeek++;
@@ -222,7 +229,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         }
 
         uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-            (accountWeek % 256);
+        (accountWeek % 256);
         while (accountWeek < week) {
             accountWeek++;
             weight -= locked;
@@ -262,7 +269,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
 
             uint256[] memory unlockWeeks = new uint256[](MAX_LOCK_WEEKS);
             uint256 bitfield = accountData.updateWeeks[currentWeek / 256] >>
-                (currentWeek % 256);
+            (currentWeek % 256);
 
             uint256 length;
             while (currentWeek <= maxLockWeek) {
@@ -285,8 +292,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
                 x--;
                 uint256 idx = unlockWeeks[x];
                 lockData[i] = LockData({
-                    weeksToUnlock: idx - systemWeek,
-                    amount: unlocks[idx]
+                weeksToUnlock : idx - systemWeek,
+                amount : unlocks[idx]
                 });
             }
         }
@@ -306,9 +313,9 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         address account,
         uint256 amountToWithdraw
     )
-        external
-        view
-        returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid)
+    external
+    view
+    returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid)
     {
         AccountData storage accountData = accountLockData[account];
         uint32[65535] storage unlocks = accountWeeklyUnlocks[account];
@@ -348,19 +355,19 @@ contract TokenLocker is PrismaOwnable, SystemStart {
                 if (accountWeek > systemWeek) {
                     // only apply the penalty if the lock has not expired
                     penaltyOnAmount =
-                        (lockAmount * (weeksToUnlock - offset)) /
-                        MAX_LOCK_WEEKS;
+                    (lockAmount * (weeksToUnlock - offset)) /
+                    MAX_LOCK_WEEKS;
                 }
 
                 if (lockAmount - penaltyOnAmount > remaining) {
                     // after penalty, locked amount exceeds remaining required balance
                     // we can complete the withdrawal using only a portion of this lock
                     penaltyOnAmount =
-                        (remaining * MAX_LOCK_WEEKS) /
-                        (MAX_LOCK_WEEKS - (weeksToUnlock - offset)) -
-                        remaining;
+                    (remaining * MAX_LOCK_WEEKS) /
+                    (MAX_LOCK_WEEKS - (weeksToUnlock - offset)) -
+                    remaining;
                     uint256 dust = ((penaltyOnAmount + remaining) %
-                        lockToTokenRatio);
+                    lockToTokenRatio);
                     if (dust > 0) penaltyOnAmount += lockToTokenRatio - dust;
                     penaltyTotal += penaltyOnAmount;
                     remaining = 0;
@@ -460,7 +467,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
              Locks that reach 0 weeks no longer receive any weight, and tokens may be withdrawn by
              calling `withdrawExpiredLocks`.
         @param _account Address to create a new lock for (does not have to be the caller)
-        @param _amount Amount of tokens to lock. This balance transfered from the caller.
+        @param _amount Amount of tokens to lock. This balance transferred from the caller.
         @param _weeks The number of weeks for the lock
      */
     function lock(
@@ -504,7 +511,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = unlockWeek / 256;
                 uint256 bitfield = accountData.updateWeeks[idx] |
-                    (uint256(1) << (unlockWeek % 256));
+                (uint256(1) << (unlockWeek % 256));
                 accountData.updateWeeks[idx] = bitfield;
             }
         }
@@ -558,7 +565,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         if (previous == _amount) {
             uint256 idx = changedWeek / 256;
             uint256 bitfield = accountData.updateWeeks[idx] &
-                ~(uint256(1) << (changedWeek % 256));
+            ~(uint256(1) << (changedWeek % 256));
             accountData.updateWeeks[idx] = bitfield;
         }
 
@@ -570,7 +577,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         if (previous == 0) {
             uint256 idx = changedWeek / 256;
             uint256 bitfield = accountData.updateWeeks[idx] |
-                (uint256(1) << (changedWeek % 256));
+            (uint256(1) << (changedWeek % 256));
             accountData.updateWeeks[idx] = bitfield;
         }
 
@@ -603,8 +610,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
 
         // copy maybe-updated bitfield entries to memory
         uint256[2] memory bitfield = [
-            accountData.updateWeeks[systemWeek / 256],
-            accountData.updateWeeks[(systemWeek / 256) + 1]
+        accountData.updateWeeks[systemWeek / 256],
+        accountData.updateWeeks[(systemWeek / 256) + 1]
         ];
 
         uint256 increasedAmount;
@@ -633,8 +640,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = (unlockWeek / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                    bitfield[idx] |
-                    (uint256(1) << (unlockWeek % 256));
+                bitfield[idx] |
+                (uint256(1) << (unlockWeek % 256));
             }
         }
 
@@ -681,8 +688,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
 
         // copy maybe-updated bitfield entries to memory
         uint256[2] memory bitfield = [
-            accountData.updateWeeks[systemWeek / 256],
-            accountData.updateWeeks[(systemWeek / 256) + 1]
+        accountData.updateWeeks[systemWeek / 256],
+        accountData.updateWeeks[(systemWeek / 256) + 1]
         ];
         uint256 increasedWeight;
 
@@ -708,8 +715,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             if (previous == amount) {
                 uint256 idx = (oldWeeks / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                    bitfield[idx] &
-                    ~(uint256(1) << (oldWeeks % 256));
+                bitfield[idx] &
+                ~(uint256(1) << (oldWeeks % 256));
             }
 
             // increase account weekly unlock for new week and modify bitfield
@@ -720,8 +727,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = (newWeeks / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                    bitfield[idx] |
-                    (uint256(1) << (newWeeks % 256));
+                bitfield[idx] |
+                (uint256(1) << (newWeeks % 256));
             }
         }
 
@@ -773,7 +780,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
 
         // use bitfield to iterate acount unlocks and subtract them from the total unlocks
         uint256 bitfield = accountData.updateWeeks[systemWeek / 256] >>
-            (systemWeek % 256);
+        (systemWeek % 256);
         while (locked > 0) {
             systemWeek++;
             if (systemWeek % 256 == 0) {
@@ -833,7 +840,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         totalWeeklyUnlocks[unlockWeek] += uint32(frozen);
         uint256 idx = unlockWeek / 256;
         uint256 bitfield = accountData.updateWeeks[idx] |
-            (uint256(1) << (unlockWeek % 256));
+        (uint256(1) << (unlockWeek % 256));
         accountData.updateWeeks[idx] = bitfield;
         emit LocksUnfrozen(msg.sender, frozen);
     }
@@ -928,21 +935,21 @@ contract TokenLocker is PrismaOwnable, SystemStart {
             if ((bitfield >> (systemWeek % 256)) & uint256(1) == 1) {
                 uint256 lockAmount = unlocks[systemWeek] * lockToTokenRatio;
                 uint256 penaltyOnAmount = (lockAmount * weeksToUnlock) /
-                    MAX_LOCK_WEEKS;
+                MAX_LOCK_WEEKS;
 
                 if (lockAmount - penaltyOnAmount > remaining) {
                     // after penalty, locked amount exceeds remaining required balance
                     // we can complete the withdrawal using only a portion of this lock
                     penaltyOnAmount =
-                        (remaining * MAX_LOCK_WEEKS) /
-                        (MAX_LOCK_WEEKS - weeksToUnlock) -
-                        remaining;
+                    (remaining * MAX_LOCK_WEEKS) /
+                    (MAX_LOCK_WEEKS - weeksToUnlock) -
+                    remaining;
                     uint256 dust = ((penaltyOnAmount + remaining) %
-                        lockToTokenRatio);
+                    lockToTokenRatio);
                     if (dust > 0) penaltyOnAmount += lockToTokenRatio - dust;
                     penaltyTotal += penaltyOnAmount;
                     uint256 lockReduceAmount = (penaltyOnAmount + remaining) /
-                        lockToTokenRatio;
+                    lockToTokenRatio;
                     decreasedWeight += lockReduceAmount * weeksToUnlock;
                     unlocks[systemWeek] -= uint32(lockReduceAmount);
                     totalWeeklyUnlocks[systemWeek] -= uint32(lockReduceAmount);
@@ -952,8 +959,8 @@ contract TokenLocker is PrismaOwnable, SystemStart {
                     // the entire lock must be used in the withdrawal
                     penaltyTotal += penaltyOnAmount;
                     decreasedWeight +=
-                        (lockAmount / lockToTokenRatio) *
-                        weeksToUnlock;
+                    (lockAmount / lockToTokenRatio) *
+                    weeksToUnlock;
                     bitfield = bitfield & ~(uint256(1) << (systemWeek % 256));
                     unlocks[systemWeek] = 0;
                     totalWeeklyUnlocks[systemWeek] -= uint32(
@@ -991,7 +998,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
         );
 
         lockToken.transfer(msg.sender, amountToWithdraw);
-        lockToken.transfer(prismaCore.feeReceiver(), penaltyTotal);
+        lockToken.transfer(altheaCore.feeReceiver(), penaltyTotal);
         emit LocksWithdrawn(msg.sender, amountToWithdraw, penaltyTotal);
 
         return amountToWithdraw;
@@ -1032,7 +1039,7 @@ contract TokenLocker is PrismaOwnable, SystemStart {
 
         uint256 unlocked;
         uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-            (accountWeek % 256);
+        (accountWeek % 256);
 
         while (accountWeek < systemWeek) {
             accountWeek++;

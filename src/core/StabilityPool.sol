@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../dependencies/PrismaMath.sol";
 import "../interfaces/IDebtToken.sol";
@@ -18,7 +18,7 @@ import "../interfaces/IVault.sol";
             Prisma's implementation is modified to support multiple collaterals. Deposits into
             the stability pool may be used to liquidate any supported collateral type.
  */
-contract StabilityPool is PrismaOwnable, SystemStart {
+contract StabilityPool is AltheaOwnable, SystemStart {
     using SafeERC20 for IERC20;
 
     uint256 public constant DECIMAL_PRECISION = 1e18;
@@ -28,7 +28,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     uint256 public constant emissionId = 0;
 
     IDebtToken public immutable debtToken;
-    IPrismaVault public immutable vault;
+    IAltheaVault public immutable vault;
     address public immutable factory;
     address public immutable liquidationManager;
 
@@ -114,6 +114,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         uint128 idx;
         uint128 expiry;
     }
+
     struct Queue {
         uint16 firstSunsetIndexKey;
         uint16 nextSunsetIndexKey;
@@ -138,7 +139,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
     constructor(
         address _prismaCore,
         IDebtToken _debtTokenAddress,
-        IPrismaVault _vault,
+        IAltheaVault _vault,
         address _factory,
         address _liquidationManager
     ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
@@ -147,6 +148,12 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         factory = _factory;
         liquidationManager = _liquidationManager;
         periodFinish = uint32(block.timestamp - 1);
+    }
+
+    function setAltheaVaultAddress(address _altheaVaultAddress) external onlyOwner {
+        require(_altheaVaultAddress != address(0), "Factory: invalid debt token");
+        require(vault == IAltheaVault(address(0)), "Factory: vault already set");
+        vault = IAltheaVault(_altheaVaultAddress);
     }
 
     function enableCollateral(IERC20 _collateral) external {
@@ -183,8 +190,8 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         require(idx < length, "Index too large");
         uint256 externalLoopEnd = currentEpoch;
         uint256 internalLoopEnd = currentScale;
-        for (uint128 i; i <= externalLoopEnd; ) {
-            for (uint128 j; j <= internalLoopEnd; ) {
+        for (uint128 i; i <= externalLoopEnd;) {
+            for (uint128 j; j <= internalLoopEnd;) {
                 epochToScaleToSums[i][j][idx] = 0;
                 unchecked {
                     ++j;
@@ -289,7 +296,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
 
         // Update deposit
         uint256 newDeposit = compoundedDebtDeposit - debtToWithdraw;
-        accountDeposits[msg.sender] = AccountDeposit({ amount: uint128(newDeposit), timestamp: depositTimestamp });
+        accountDeposits[msg.sender] = AccountDeposit({amount: uint128(newDeposit), timestamp: depositTimestamp});
 
         _updateSnapshots(msg.sender, newDeposit);
         emit UserDepositChanged(msg.sender, newDeposit);
@@ -708,7 +715,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
         uint256[] memory collateralGains = new uint256[](collateralTokens.length);
 
         uint80[256] storage depositorGains = collateralGainsByDepositor[msg.sender];
-        for (uint256 i; i < loopEnd; ) {
+        for (uint256 i; i < loopEnd;) {
             uint256 collateralIndex = collateralIndexes[i];
             uint256 gains = depositorGains[collateralIndex];
             if (gains > 0) {
@@ -795,7 +802,7 @@ contract StabilityPool is PrismaOwnable, SystemStart {
             // we update only if the snapshot has changed
             if (debtLoss > 0 || hasGains || amount > 0) {
                 // Update deposit
-                accountDeposits[account] = AccountDeposit({ amount: uint128(compoundedDebtDeposit), timestamp: depositTimestamp });
+                accountDeposits[account] = AccountDeposit({amount: uint128(compoundedDebtDeposit), timestamp: depositTimestamp});
                 _updateSnapshots(account, compoundedDebtDeposit);
             }
         }

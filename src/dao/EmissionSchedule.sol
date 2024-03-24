@@ -14,7 +14,7 @@ import "../dependencies/SystemStart.sol";
             reward rate will decay to dust as it approaches the maximum supply,
             but should not reach zero for a Very Long Time.
  */
-contract EmissionSchedule is PrismaOwnable, SystemStart {
+contract EmissionSchedule is AltheaOwnable, SystemStart {
     event WeeklyPctScheduleSet(uint64[2][] schedule);
     event LockParametersSet(uint256 lockWeeks, uint256 lockDecayWeeks);
 
@@ -23,7 +23,7 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
     uint256 public constant MAX_LOCK_WEEKS = 52;
 
     IIncentiveVoting public immutable voter;
-    IPrismaVault public immutable vault;
+    IAltheaVault public immutable vault;
 
     // current number of weeks that emissions are locked for when they are claimed
     uint64 public lockWeeks;
@@ -38,14 +38,14 @@ contract EmissionSchedule is PrismaOwnable, SystemStart {
     uint64[2][] private scheduledWeeklyPct;
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         IIncentiveVoting _voter,
-        IPrismaVault _vault,
+        IAltheaVault _vault,
         uint64 _initialLockWeeks,
         uint64 _lockDecayWeeks,
         uint64 _weeklyPct,
         uint64[2][] memory _scheduledWeeklyPct
-    ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) SystemStart(_altheaCore) {
         voter = _voter;
         vault = _vault;
 

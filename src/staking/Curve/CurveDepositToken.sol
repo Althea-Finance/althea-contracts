@@ -16,11 +16,11 @@ import "../../dependencies/PrismaOwnable.sol";
             burned to receive the LP tokens back. Holders may claim PRISMA emissions
             on top of the earned CRV.
  */
-contract CurveDepositToken is PrismaOwnable {
+contract CurveDepositToken is AltheaOwnable {
     IERC20 public immutable PRISMA;
     IERC20 public immutable CRV;
     ICurveProxy public immutable curveProxy;
-    IPrismaVault public immutable vault;
+    IAltheaVault public immutable vault;
     IGaugeController public immutable gaugeController;
 
     ILiquidityGauge public gauge;
@@ -65,10 +65,10 @@ contract CurveDepositToken is PrismaOwnable {
         IERC20 _prisma,
         IERC20 _CRV,
         ICurveProxy _curveProxy,
-        IPrismaVault _vault,
+        IAltheaVault _vault,
         IGaugeController _gaugeController,
-        address prismaCore
-    ) PrismaOwnable(prismaCore) {
+        address altheaCore
+    ) AltheaOwnable(altheaCore) {
         PRISMA = _prisma;
         CRV = _CRV;
         curveProxy = _curveProxy;

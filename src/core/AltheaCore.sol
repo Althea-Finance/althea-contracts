@@ -10,7 +10,7 @@ pragma solidity 0.8.19;
             Other ownable Prisma contracts inherit their ownership from this contract
             using `PrismaOwnable`.
  */
-contract PrismaCore {
+contract AltheaCore {
     address public feeReceiver;
     address public priceFeed;
 

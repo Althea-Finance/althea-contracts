@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.19;
+
 import "../interfaces/IAggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/PrismaMath.sol";
@@ -13,7 +14,7 @@ import "../dependencies/PrismaOwnable.sol";
 
             Prisma's implementation additionally caches price values within a block and incorporates exchange rate settings for derivative tokens (e.g. stETH -> wstETH).
  */
-contract PriceFeed is PrismaOwnable {
+contract PriceFeed is AltheaOwnable {
     struct OracleRecord {
         IAggregatorV3Interface chainLinkOracle;
         uint8 decimals;
@@ -76,7 +77,7 @@ contract PriceFeed is PrismaOwnable {
         bool isEthIndexed;
     }
 
-    constructor(address _prismaCore, address ethFeed, OracleSetup[] memory oracles) PrismaOwnable(_prismaCore) {
+    constructor(address _altheaCore, address ethFeed, OracleSetup[] memory oracles) AltheaOwnable(_altheaCore) {
         _setOracle(address(0), ethFeed, 3600, 0, 0, false);
         for (uint i = 0; i < oracles.length; i++) {
             OracleSetup memory o = oracles[i];
@@ -116,7 +117,7 @@ contract PriceFeed is PrismaOwnable {
     ) internal {
         if (_heartbeat > 86400) revert PriceFeed__HeartbeatOutOfBoundsError();
         IAggregatorV3Interface newFeed = IAggregatorV3Interface(_chainlinkOracle);
-        (FeedResponse memory currResponse, FeedResponse memory prevResponse, ) = _fetchFeedResponses(newFeed, 0);
+        (FeedResponse memory currResponse, FeedResponse memory prevResponse,) = _fetchFeedResponses(newFeed, 0);
 
         if (!_isFeedWorking(currResponse, prevResponse)) {
             revert PriceFeed__InvalidFeedResponseError(_token);
@@ -126,13 +127,13 @@ contract PriceFeed is PrismaOwnable {
         }
 
         OracleRecord memory record = OracleRecord({
-            chainLinkOracle: newFeed,
-            decimals: newFeed.decimals(),
-            heartbeat: _heartbeat,
-            sharePriceSignature: sharePriceSignature,
-            sharePriceDecimals: sharePriceDecimals,
-            isFeedWorking: true,
-            isEthIndexed: _isEthIndexed
+        chainLinkOracle : newFeed,
+        decimals : newFeed.decimals(),
+        heartbeat : _heartbeat,
+        sharePriceSignature : sharePriceSignature,
+        sharePriceDecimals : sharePriceDecimals,
+        isFeedWorking : true,
+        isEthIndexed : _isEthIndexed
         });
 
         oracleRecords[_token] = record;
@@ -197,8 +198,8 @@ contract PriceFeed is PrismaOwnable {
     ) internal returns (uint256) {
         uint8 decimals = oracle.decimals;
         bool isValidResponse = _isFeedWorking(_currResponse, _prevResponse) &&
-            !_isPriceStale(_currResponse.timestamp, oracle.heartbeat) &&
-            !_isPriceChangeAboveMaxDeviation(_currResponse, _prevResponse, decimals);
+        !_isPriceStale(_currResponse.timestamp, oracle.heartbeat) &&
+        !_isPriceChangeAboveMaxDeviation(_currResponse, _prevResponse, decimals);
         if (isValidResponse) {
             uint256 scaledPrice = _scalePriceByDigits(uint256(_currResponse.answer), decimals);
             if (oracle.sharePriceSignature != 0) {
@@ -246,11 +247,11 @@ contract PriceFeed is PrismaOwnable {
 
     function _isValidResponse(FeedResponse memory _response) internal view returns (bool) {
         return
-            (_response.success) &&
-            (_response.roundId != 0) &&
-            (_response.timestamp != 0) &&
-            (_response.timestamp <= block.timestamp) &&
-            (_response.answer != 0);
+        (_response.success) &&
+        (_response.roundId != 0) &&
+        (_response.timestamp != 0) &&
+        (_response.timestamp <= block.timestamp) &&
+        (_response.answer != 0);
     }
 
     function _isPriceChangeAboveMaxDeviation(
@@ -293,10 +294,10 @@ contract PriceFeed is PrismaOwnable {
 
     function _storePrice(address _token, uint256 _price, uint256 _timestamp, uint80 roundId) internal {
         priceRecords[_token] = PriceRecord({
-            scaledPrice: uint96(_price),
-            timestamp: uint32(_timestamp),
-            lastUpdated: uint32(block.timestamp),
-            roundId: roundId
+        scaledPrice : uint96(_price),
+        timestamp : uint32(_timestamp),
+        lastUpdated : uint32(block.timestamp),
+        roundId : roundId
         });
         emit PriceRecordUpdated(_token, _price);
     }
@@ -329,19 +330,19 @@ contract PriceFeed is PrismaOwnable {
         if (_currentRoundId == 0) {
             return prevResponse;
         }
-        unchecked {
-            try _priceAggregator.getRoundData(_currentRoundId - 1) returns (
-                uint80 roundId,
-                int256 answer,
-                uint256 /* startedAt */,
-                uint256 timestamp,
-                uint80 /* answeredInRound */
-            ) {
-                prevResponse.roundId = roundId;
-                prevResponse.answer = answer;
-                prevResponse.timestamp = timestamp;
-                prevResponse.success = true;
-            } catch {}
-        }
+    unchecked {
+        try _priceAggregator.getRoundData(_currentRoundId - 1) returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 /* startedAt */,
+            uint256 timestamp,
+            uint80 /* answeredInRound */
+        ) {
+            prevResponse.roundId = roundId;
+            prevResponse.answer = answer;
+            prevResponse.timestamp = timestamp;
+            prevResponse.success = true;
+        } catch {}
+    }
     }
 }

@@ -3,8 +3,8 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/IPrismaCore.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/IAltheaCore.sol";
 
 /**
     @title Prisma DAO Interim Admin
@@ -35,15 +35,15 @@ contract InterimAdmin is Ownable {
     uint256 public constant MAX_TIME_TO_EXECUTION = 3 weeks;
     uint256 public constant MAX_DAILY_PROPOSALS = 3;
 
-    IPrismaCore public immutable prismaCore;
+    IAltheaCore public immutable altheaCore;
     address public adminVoting;
 
     Proposal[] proposalData;
     mapping(uint256 => Action[]) proposalPayloads;
     mapping(uint256 => uint256) dailyProposalsCount;
 
-    constructor(address _prismaCore) {
-        prismaCore = IPrismaCore(_prismaCore);
+    constructor(address _altheaCore) {
+        altheaCore = IAltheaCore(_altheaCore);
     }
 
     function setAdminVoting(address _adminVoting) external onlyOwner {
@@ -65,15 +65,15 @@ contract InterimAdmin is Ownable {
     function getProposalData(
         uint256 id
     )
-        external
-        view
-        returns (uint256 createdAt, uint256 canExecuteAfter, bool executed, bool canExecute, Action[] memory payload)
+    external
+    view
+    returns (uint256 createdAt, uint256 canExecuteAfter, bool executed, bool canExecute, Action[] memory payload)
     {
         Proposal memory proposal = proposalData[id];
         payload = proposalPayloads[id];
         canExecute = (!proposal.processed &&
-            proposal.canExecuteAfter < block.timestamp &&
-            proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp);
+        proposal.canExecuteAfter < block.timestamp &&
+        proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp);
 
         return (proposal.createdAt, proposal.canExecuteAfter, proposal.processed, canExecute, payload);
     }
@@ -96,10 +96,10 @@ contract InterimAdmin is Ownable {
         uint256 idx = proposalData.length;
         proposalData.push(
             Proposal({
-                createdAt: uint32(block.timestamp),
-                canExecuteAfter: uint32(block.timestamp + MIN_TIME_TO_EXECUTION),
-                processed: false
-            })
+        createdAt : uint32(block.timestamp),
+        canExecuteAfter : uint32(block.timestamp + MIN_TIME_TO_EXECUTION),
+        processed : false
+        })
         );
 
         for (uint256 i = 0; i < payload.length; i++) {
@@ -116,7 +116,7 @@ contract InterimAdmin is Ownable {
         @param id Proposal ID
      */
     function cancelProposal(uint256 id) external {
-        require(msg.sender == owner() || msg.sender == prismaCore.guardian(), "Unauthorized");
+        require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");
         require(id < proposalData.length, "Invalid ID");
         proposalData[id].processed = true;
         emit ProposalCancelled(id);
@@ -149,19 +149,19 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @dev Allow accepting ownership transfer of `PrismaCore`
+        @dev Allow accepting ownership transfer of `AltheaCore`
      */
     function acceptTransferOwnership() external onlyOwner {
-        prismaCore.acceptTransferOwnership();
+        altheaCore.acceptTransferOwnership();
     }
 
     /**
-        @dev Restricted method to transfer ownership of `PrismaCore`
+        @dev Restricted method to transfer ownership of `AltheaCore`
              to the actual Admin voting contract
      */
     function transferOwnershipToAdminVoting() external {
-        require(msg.sender == owner() || msg.sender == prismaCore.guardian(), "Unauthorized");
-        prismaCore.commitTransferOwnership(adminVoting);
+        require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");
+        altheaCore.commitTransferOwnership(adminVoting);
     }
 
     function _isSetGuardianPayload(Action memory action) internal pure returns (bool) {
@@ -171,6 +171,6 @@ contract InterimAdmin is Ownable {
         assembly {
             sig := mload(add(data, 0x20))
         }
-        return sig == IPrismaCore.setGuardian.selector;
+        return sig == IAltheaCore.setGuardian.selector;
     }
 }

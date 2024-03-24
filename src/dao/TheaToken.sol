@@ -3,18 +3,18 @@
 pragma solidity 0.8.19;
 
 import "../interfaces/IERC2612.sol";
-import { OFT, IERC20, ERC20 } from "@layerzerolabs/contracts/token/oft/OFT.sol";
+import {OFTV2, IERC20, ERC20} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
 
 /**
     @title Prisma Governance Token
     @notice Given as an incentive for users of the protocol. Can be locked in `TokenLocker`
             to receive lock weight, which gives governance power within the Prisma DAO.
  */
-contract PrismaToken is OFT, IERC2612 {
+contract TheaToken is OFTV2, IERC2612 {
     // --- ERC20 Data ---
 
-    string internal constant _NAME = "Prisma Governance Token";
-    string internal constant _SYMBOL = "PRISMA";
+    string internal constant _NAME = "Thea Governance Token";
+    string internal constant _SYMBOL = "THEA";
     string public constant version = "1";
 
     // --- EIP 2612 Data ---
@@ -51,6 +51,18 @@ contract PrismaToken is OFT, IERC2612 {
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(_TYPE_HASH, hashedName, hashedVersion);
 
         locker = _locker;
+        vault = _vault;
+    }
+
+
+    function setLockerAddress(address _locker) external onlyOwner {
+        require(locker == address(0), "Locker address already set");
+        locker = _locker;
+    }
+
+
+    function setVaultAddress(address _vault) external onlyOwner {
+        require(vault == address(0), "Vault address already set");
         vault = _vault;
     }
 

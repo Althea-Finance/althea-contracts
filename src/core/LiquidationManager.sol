@@ -8,7 +8,7 @@ import "../interfaces/ISortedTroves.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ITroveManager.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaBase.sol";
+import "../dependencies/AltheaBase.sol";
 
 /**
     @title Prisma Liquidation Manager
@@ -36,7 +36,7 @@ import "../dependencies/PrismaBase.sol";
                the value of the debt is distributed between stability pool depositors. The remaining
                collateral is left claimable by the trove owner.
  */
-contract LiquidationManager is PrismaBase {
+contract LiquidationManager is AltheaBase {
     IStabilityPool public immutable stabilityPool;
     IBorrowerOperations public immutable borrowerOperations;
     address public immutable factory;
@@ -105,6 +105,12 @@ contract LiquidationManager is PrismaBase {
         stabilityPool = _stabilityPoolAddress;
         borrowerOperations = _borrowerOperations;
         factory = _factory;
+    }
+
+    function setBorrowerOperationsAddress(address _borrowerOperations) external onlyOwner {
+        require(_borrowerOperations != address(0), "Factory: invalid borrower operations");
+        require(borrowerOperations == IBorrowerOperations(address(0)), "Factory: borrower operations already set");
+        borrowerOperations = IBorrowerOperations(_borrowerOperations);
     }
 
     function enableTroveManager(ITroveManager _troveManager) external {
@@ -517,9 +523,9 @@ contract LiquidationManager is PrismaBase {
         uint256 _debtInStabPool,
         bool sunsetting
     )
-        internal
-        pure
-        returns (uint256 debtToOffset, uint256 collToSendToSP, uint256 debtToRedistribute, uint256 collToRedistribute)
+    internal
+    pure
+    returns (uint256 debtToOffset, uint256 collToSendToSP, uint256 debtToRedistribute, uint256 collToRedistribute)
     {
         if (_debtInStabPool > 0 && !sunsetting) {
             /*

@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.19;
 
-import { OFT, IERC20, ERC20 } from "@layerzerolabs/contracts/token/oft/OFT.sol";
-import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
-import "../interfaces/IPrismaCore.sol";
+import {OFTV2, IERC20, ERC20} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
+import "../interfaces/IAltheaCore.sol";
 
 /**
     @title Prisma Debt Token "acUSD"
@@ -12,7 +12,7 @@ import "../interfaces/IPrismaCore.sol";
             This contract has a 1:n relationship with multiple deployments of `TroveManager`,
             each of which hold one collateral type which may be used to mint this token.
  */
-contract DebtToken is OFT {
+contract DebtToken is OFTV2 {
     string public constant version = "1";
 
     // --- ERC 3156 Data ---
@@ -37,7 +37,7 @@ contract DebtToken is OFT {
     mapping(address => uint256) private _nonces;
 
     // --- Addresses ---
-    IPrismaCore private immutable _prismaCore;
+    IAltheaCore private immutable _altheaCore;
     address public immutable stabilityPoolAddress;
     address public immutable borrowerOperationsAddress;
     address public immutable factory;
@@ -53,14 +53,14 @@ contract DebtToken is OFT {
         string memory _symbol,
         address _stabilityPoolAddress,
         address _borrowerOperationsAddress,
-        IPrismaCore prismaCore_,
+        IAltheaCore altheaCore_,
         address _layerZeroEndpoint,
         address _factory,
         address _gasPool,
         uint256 _gasCompensation
     ) OFT(_name, _symbol, _layerZeroEndpoint) {
         stabilityPoolAddress = _stabilityPoolAddress;
-        _prismaCore = prismaCore_;
+        _altheaCore = altheaCore_;
         borrowerOperationsAddress = _borrowerOperationsAddress;
         factory = _factory;
         gasPool = _gasPool;
@@ -74,6 +74,12 @@ contract DebtToken is OFT {
         _HASHED_VERSION = hashedVersion;
         _CACHED_CHAIN_ID = block.chainid;
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(_TYPE_HASH, hashedName, hashedVersion);
+    }
+
+    function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external {
+        require(_borrowerOperationsAddress != address(0), "Debt: invalid borrower operations");
+        require(msg.sender == factory, "!Factory");
+        borrowerOperationsAddress = _borrowerOperationsAddress;
     }
 
     function enableTroveManager(address _troveManager) external {
@@ -202,7 +208,7 @@ contract DebtToken is OFT {
         );
         _spendAllowance(address(receiver), address(this), amount + fee);
         _burn(address(receiver), amount);
-        _transfer(address(receiver), _prismaCore.feeReceiver(), fee);
+        _transfer(address(receiver), _altheaCore.feeReceiver(), fee);
         return true;
     }
 

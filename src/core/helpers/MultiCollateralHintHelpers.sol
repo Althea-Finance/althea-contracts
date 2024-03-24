@@ -9,10 +9,10 @@ import "../../interfaces/IFactory.sol";
 import "../../dependencies/PrismaBase.sol";
 import "../../dependencies/PrismaMath.sol";
 
-contract MultiCollateralHintHelpers is PrismaBase {
+contract MultiCollateralHintHelpers is AltheaBase {
     IBorrowerOperations public immutable borrowerOperations;
 
-    constructor(address _borrowerOperationsAddress, uint256 _gasCompensation) PrismaBase(_gasCompensation) {
+    constructor(address _borrowerOperationsAddress, uint256 _gasCompensation) AltheaBase(_gasCompensation) {
         borrowerOperations = IBorrowerOperations(_borrowerOperationsAddress);
     }
 
@@ -41,9 +41,9 @@ contract MultiCollateralHintHelpers is PrismaBase {
         uint256 _price,
         uint256 _maxIterations
     )
-        external
-        view
-        returns (address firstRedemptionHint, uint256 partialRedemptionHintNICR, uint256 truncatedDebtAmount)
+    external
+    view
+    returns (address firstRedemptionHint, uint256 partialRedemptionHintNICR, uint256 truncatedDebtAmount)
     {
         ISortedTroves sortedTrovesCached = ISortedTroves(troveManager.sortedTroves());
 
@@ -63,7 +63,7 @@ contract MultiCollateralHintHelpers is PrismaBase {
 
         uint256 minNetDebt = borrowerOperations.minNetDebt();
         while (currentTroveuser != address(0) && remainingDebt > 0 && _maxIterations-- > 0) {
-            (uint256 debt, uint256 coll, , ) = troveManager.getEntireDebtAndColl(currentTroveuser);
+            (uint256 debt, uint256 coll, ,) = troveManager.getEntireDebtAndColl(currentTroveuser);
             uint256 netDebt = _getNetDebt(debt);
 
             if (netDebt > remainingDebt) {

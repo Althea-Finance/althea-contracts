@@ -13,9 +13,9 @@ interface IBooster {
     function poolInfo(
         uint256 _pid
     )
-        external
-        view
-        returns (address lpToken, address token, address gauge, address crvRewards, address stash, bool shutdown);
+    external
+    view
+    returns (address lpToken, address token, address gauge, address crvRewards, address stash, bool shutdown);
 }
 
 interface IBaseRewardPool {
@@ -36,14 +36,14 @@ interface IConvexStash {
             Tokens are minted by depositing Curve LP tokens, and burned to receive the LP
             tokens back. Holders may claim PRISMA emissions on top of the earned CRV and CVX.
  */
-contract ConvexDepositToken is PrismaOwnable {
+contract ConvexDepositToken is AltheaOwnable {
     IERC20 public immutable PRISMA;
     IERC20 public immutable CRV;
     IERC20 public immutable CVX;
 
     IBooster public immutable booster;
     ICurveProxy public immutable curveProxy;
-    IPrismaVault public immutable vault;
+    IAltheaVault public immutable vault;
 
     IERC20 public lpToken;
     uint256 public depositPid;
@@ -97,9 +97,9 @@ contract ConvexDepositToken is PrismaOwnable {
         IERC20 _CVX,
         IBooster _booster,
         ICurveProxy _proxy,
-        IPrismaVault _vault,
-        address prismaCore
-    ) PrismaOwnable(prismaCore) {
+        IAltheaVault _vault,
+        address altheaCore
+    ) AltheaOwnable(altheaCore) {
         PRISMA = _prisma;
         CRV = _CRV;
         CVX = _CVX;
@@ -110,7 +110,7 @@ contract ConvexDepositToken is PrismaOwnable {
 
     function initialize(uint256 pid) external {
         require(address(lpToken) == address(0), "Already initialized");
-        (address _lpToken, , , address _crvRewards, address _stash, ) = booster.poolInfo(pid);
+        (address _lpToken, , , address _crvRewards, address _stash,) = booster.poolInfo(pid);
 
         depositPid = pid;
         lpToken = IERC20(_lpToken);

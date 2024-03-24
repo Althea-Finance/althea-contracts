@@ -7,6 +7,7 @@ interface ITokenLocker {
         uint256 amount;
         uint256 weeksToUnlock;
     }
+
     struct ExtendLockData {
         uint256 amount;
         uint256 currentWeeks;
@@ -81,7 +82,7 @@ interface ITokenLocker {
 
     function penaltyWithdrawalsEnabled() external view returns (bool);
 
-    function prismaCore() external view returns (address);
+    function altheaCore() external view returns (address);
 
     function totalDecayRate() external view returns (uint32);
 

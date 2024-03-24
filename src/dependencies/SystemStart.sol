@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.19;
 
-import "../interfaces/IPrismaCore.sol";
+import "../interfaces/IAltheaCore.sol";
 
 /**
     @title Prisma System Start Time
@@ -11,8 +11,8 @@ import "../interfaces/IPrismaCore.sol";
 contract SystemStart {
     uint256 immutable startTime;
 
-    constructor(address prismaCore) {
-        startTime = IPrismaCore(prismaCore).startTime();
+    constructor(address altheaCore) {
+        startTime = IAltheaCore(altheaCore).startTime();
     }
 
     function getWeek() public view returns (uint256 week) {
