@@ -5,6 +5,7 @@ pragma solidity 0.8.19;
 import "../dependencies/DelegatedOps.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
+import "../dependencies/AltheaOwnable.sol";
 
 /**
     @title Thea Incentive Voting
@@ -14,12 +15,12 @@ import "../interfaces/ITokenLocker.sol";
 
             Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
  */
-contract IncentiveVoting is DelegatedOps, SystemStart {
+contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     uint256 public constant MAX_POINTS = 10000; // must be less than 2**16 or things will break
     uint256 public constant MAX_LOCK_WEEKS = 52; // must be the same as `MultiLocker`
 
-    ITokenLocker public immutable tokenLocker;
-    address public immutable vault;
+    ITokenLocker public tokenLocker;
+    address public vault;
 
     struct AccountData {
         // system week when the account's lock weights were registered
@@ -83,13 +84,20 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
     // emitted each time the votes for `account` are cleared
     event ClearedVotes(address indexed account, uint256 indexed week);
 
-    constructor(address _altheaCore, ITokenLocker _tokenLocker, address _vault) SystemStart(_altheaCore) {
+    constructor(address _altheaCore, ITokenLocker _tokenLocker, address _vault) AltheaOwnable(_altheaCore)  SystemStart(_altheaCore) {
         tokenLocker = _tokenLocker;
         vault = _vault;
     }
 
+    function setAltheaVaultAddress(address _vaultAddress) external onlyOwner {
+        require(address(vault) == address(0), "Vault already set");
+        require(_vaultAddress != address(0), "Invalid address");
+        vault = _vaultAddress;
+    }
+
+
     function setTokenLocker(address _locker) external onlyOwner {
-        require(newLocker != address(0), "Invalid address");
+        require(_locker != address(0), "Invalid address");
         require(address(tokenLocker) == address(0), "Already set");
         tokenLocker = ITokenLocker(_locker);
     }
@@ -105,7 +113,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
         uint16[2][MAX_POINTS] storage storedVotes = accountLockData[account].activeVotes;
         uint256 length = votes.length;
         for (uint256 i = 0; i < length; i++) {
-            votes[i] = Vote({id : storedVotes[i][0], points : storedVotes[i][1]});
+            votes[i] = Vote({id: storedVotes[i][0], points: storedVotes[i][1]});
         }
         return votes;
     }
@@ -398,7 +406,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
             }
 
             ITokenLocker.LockData[] memory lockData = new ITokenLocker.LockData[](1);
-            lockData[0] = ITokenLocker.LockData({amount : amount, weeksToUnlock : MAX_LOCK_WEEKS});
+            lockData[0] = ITokenLocker.LockData({amount: amount, weeksToUnlock: MAX_LOCK_WEEKS});
             emit AccountWeightRegistered(account, week, 0, lockData);
         }
         return true;
@@ -429,7 +437,7 @@ contract IncentiveVoting is DelegatedOps, SystemStart {
             }
             uint256 remainingWeeks = unlockWeek - systemWeek;
             uint256 amount = amounts[idx];
-            lockData[idx] = LockData({amount : amount, weeksToUnlock : remainingWeeks});
+            lockData[idx] = LockData({amount: amount, weeksToUnlock: remainingWeeks});
         }
 
         return lockData;

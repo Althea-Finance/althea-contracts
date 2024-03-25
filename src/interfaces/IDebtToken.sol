@@ -55,6 +55,8 @@ interface IDebtToken {
         bytes32 s
     ) external;
 
+    function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external;
+
     function renounceOwnership() external;
 
     function returnFromPool(address _poolAddress, address _receiver, uint256 _amount) external;

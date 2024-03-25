@@ -59,6 +59,10 @@ interface ITheaToken {
 
     function setSendVersion(uint16 _version) external;
 
+    function setLockerAddress(address _locker) external;
+
+    function setAltheaVaultAddress(address _vault) external;
+
     function setTrustedRemote(uint16 _srcChainId, bytes calldata _path) external;
 
     function setTrustedRemoteAddress(uint16 _remoteChainId, bytes calldata _remoteAddress) external;

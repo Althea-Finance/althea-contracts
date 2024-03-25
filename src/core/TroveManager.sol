@@ -11,12 +11,12 @@ import "../interfaces/ISortedTroves.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../dependencies/SystemStart.sol";
-import "../dependencies/PrismaBase.sol";
+import "../dependencies/AltheaBase.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 
 /**
-    @title Prisma Trove Manager
+    @title Althea Trove Manager
     @notice Based on Liquity's `TroveManager`
             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
 
@@ -36,7 +36,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     address public immutable liquidationManager;
     address immutable gasPoolAddress;
     IDebtToken public immutable debtToken;
-    IAltheaVault public immutable vault;
+    IAltheaVault public vault;
 
     IPriceFeed public priceFeed;
     IERC20 public collateralToken;
@@ -238,6 +238,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
 
     constructor(
         address _altheaCore,
+        address _gasPoolAddress,
         address _debtTokenAddress,
         address _borrowerOperationsAddress,
         address _vault,
@@ -249,6 +250,12 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         borrowerOperationsAddress = _borrowerOperationsAddress;
         vault = IAltheaVault(_vault);
         liquidationManager = _liquidationManager;
+    }
+
+    function setAltheaVaultAddress(address _vaultAddress) external onlyOwner {
+        require(address(vault) == address(0), "Vault already set");
+        require(_vaultAddress != address(0), "Invalid address");
+        vault = IAltheaVault(_vaultAddress);
     }
 
     function setAddresses(address _priceFeedAddress, address _sortedTrovesAddress, address _collateralToken) external {

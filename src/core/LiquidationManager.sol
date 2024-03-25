@@ -7,6 +7,7 @@ import "../interfaces/IStabilityPool.sol";
 import "../interfaces/ISortedTroves.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/ITroveManager.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/PrismaMath.sol";
 import "../dependencies/AltheaBase.sol";
 
@@ -36,9 +37,9 @@ import "../dependencies/AltheaBase.sol";
                the value of the debt is distributed between stability pool depositors. The remaining
                collateral is left claimable by the trove owner.
  */
-contract LiquidationManager is AltheaBase {
+contract LiquidationManager is AltheaOwnable, AltheaBase {
     IStabilityPool public immutable stabilityPool;
-    IBorrowerOperations public immutable borrowerOperations;
+    IBorrowerOperations public borrowerOperations;
     address public immutable factory;
 
     uint256 private constant _100pct = 1000000000000000000; // 1e18 == 100%
@@ -97,11 +98,12 @@ contract LiquidationManager is AltheaBase {
     }
 
     constructor(
+        address _altheaCore,
         IStabilityPool _stabilityPoolAddress,
         IBorrowerOperations _borrowerOperations,
         address _factory,
         uint256 _gasCompensation
-    ) PrismaBase(_gasCompensation) {
+    )  AltheaOwnable(_altheaCore) AltheaBase(_gasCompensation) {
         stabilityPool = _stabilityPoolAddress;
         borrowerOperations = _borrowerOperations;
         factory = _factory;

@@ -8,7 +8,7 @@ pragma solidity 0.8.19;
 
             Ownership of this contract should be the Prisma DAO via `AdminVoting`.
             Other ownable Prisma contracts inherit their ownership from this contract
-            using `PrismaOwnable`.
+            using `AltheaOwnable`.
  */
 contract AltheaCore {
     address public feeReceiver;

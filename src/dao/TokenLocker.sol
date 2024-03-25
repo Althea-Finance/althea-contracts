@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.19;
 
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/IAltheaCore.sol";
 import "../interfaces/IIncentiveVoting.sol";
@@ -31,7 +31,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
     uint256 public immutable lockToTokenRatio;
 
     ITheaToken public immutable lockToken;
-    IIncentiveVoting public immutable incentiveVoter;
+    IIncentiveVoting public incentiveVoter;
     IAltheaCore public immutable altheaCore;
     address public immutable deploymentManager;
 
@@ -126,10 +126,10 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         _;
     }
 
-    function setIncentiveVoter(address _voter) external onlyOwner {
-        require(_voter != address(0), "Invalid address");
-        require(incentiveVoter == IIncentiveVoting(0), "incentiveVoter address already set");
-        incentiveVoter = IIncentiveVoting(_voter);
+    function setIncentiveVotingAddress(address _voterAddress) external onlyOwner {
+        require(_voterAddress != address(0), "Invalid address");
+        require(address(incentiveVoter) == address(0), "incentiveVoter address already set");
+        incentiveVoter = IIncentiveVoting(_voterAddress);
     }
 
     function setAllowPenaltyWithdrawAfter(
@@ -180,7 +180,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             uint256 systemWeek = getWeek();
 
             uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-            (accountWeek % 256);
+                (accountWeek % 256);
 
             while (accountWeek < systemWeek) {
                 accountWeek++;
@@ -229,7 +229,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         }
 
         uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-        (accountWeek % 256);
+            (accountWeek % 256);
         while (accountWeek < week) {
             accountWeek++;
             weight -= locked;
@@ -269,7 +269,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
             uint256[] memory unlockWeeks = new uint256[](MAX_LOCK_WEEKS);
             uint256 bitfield = accountData.updateWeeks[currentWeek / 256] >>
-            (currentWeek % 256);
+                (currentWeek % 256);
 
             uint256 length;
             while (currentWeek <= maxLockWeek) {
@@ -292,8 +292,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
                 x--;
                 uint256 idx = unlockWeeks[x];
                 lockData[i] = LockData({
-                weeksToUnlock : idx - systemWeek,
-                amount : unlocks[idx]
+                    weeksToUnlock: idx - systemWeek,
+                    amount: unlocks[idx]
                 });
             }
         }
@@ -355,19 +355,19 @@ contract TokenLocker is AltheaOwnable, SystemStart {
                 if (accountWeek > systemWeek) {
                     // only apply the penalty if the lock has not expired
                     penaltyOnAmount =
-                    (lockAmount * (weeksToUnlock - offset)) /
-                    MAX_LOCK_WEEKS;
+                        (lockAmount * (weeksToUnlock - offset)) /
+                        MAX_LOCK_WEEKS;
                 }
 
                 if (lockAmount - penaltyOnAmount > remaining) {
                     // after penalty, locked amount exceeds remaining required balance
                     // we can complete the withdrawal using only a portion of this lock
                     penaltyOnAmount =
-                    (remaining * MAX_LOCK_WEEKS) /
-                    (MAX_LOCK_WEEKS - (weeksToUnlock - offset)) -
-                    remaining;
+                        (remaining * MAX_LOCK_WEEKS) /
+                        (MAX_LOCK_WEEKS - (weeksToUnlock - offset)) -
+                        remaining;
                     uint256 dust = ((penaltyOnAmount + remaining) %
-                    lockToTokenRatio);
+                        lockToTokenRatio);
                     if (dust > 0) penaltyOnAmount += lockToTokenRatio - dust;
                     penaltyTotal += penaltyOnAmount;
                     remaining = 0;
@@ -511,7 +511,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = unlockWeek / 256;
                 uint256 bitfield = accountData.updateWeeks[idx] |
-                (uint256(1) << (unlockWeek % 256));
+                    (uint256(1) << (unlockWeek % 256));
                 accountData.updateWeeks[idx] = bitfield;
             }
         }
@@ -565,7 +565,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         if (previous == _amount) {
             uint256 idx = changedWeek / 256;
             uint256 bitfield = accountData.updateWeeks[idx] &
-            ~(uint256(1) << (changedWeek % 256));
+                    ~(uint256(1) << (changedWeek % 256));
             accountData.updateWeeks[idx] = bitfield;
         }
 
@@ -577,7 +577,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         if (previous == 0) {
             uint256 idx = changedWeek / 256;
             uint256 bitfield = accountData.updateWeeks[idx] |
-            (uint256(1) << (changedWeek % 256));
+                (uint256(1) << (changedWeek % 256));
             accountData.updateWeeks[idx] = bitfield;
         }
 
@@ -610,9 +610,9 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
         // copy maybe-updated bitfield entries to memory
         uint256[2] memory bitfield = [
-        accountData.updateWeeks[systemWeek / 256],
-        accountData.updateWeeks[(systemWeek / 256) + 1]
-        ];
+                            accountData.updateWeeks[systemWeek / 256],
+                            accountData.updateWeeks[(systemWeek / 256) + 1]
+            ];
 
         uint256 increasedAmount;
         uint256 increasedWeight;
@@ -640,8 +640,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = (unlockWeek / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                bitfield[idx] |
-                (uint256(1) << (unlockWeek % 256));
+                    bitfield[idx] |
+                    (uint256(1) << (unlockWeek % 256));
             }
         }
 
@@ -688,9 +688,9 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
         // copy maybe-updated bitfield entries to memory
         uint256[2] memory bitfield = [
-        accountData.updateWeeks[systemWeek / 256],
-        accountData.updateWeeks[(systemWeek / 256) + 1]
-        ];
+                            accountData.updateWeeks[systemWeek / 256],
+                            accountData.updateWeeks[(systemWeek / 256) + 1]
+            ];
         uint256 increasedWeight;
 
         // iterate extended locks and store intermediate values in memory where possible
@@ -715,8 +715,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             if (previous == amount) {
                 uint256 idx = (oldWeeks / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                bitfield[idx] &
-                ~(uint256(1) << (oldWeeks % 256));
+                    bitfield[idx] &
+                    ~(uint256(1) << (oldWeeks % 256));
             }
 
             // increase account weekly unlock for new week and modify bitfield
@@ -727,8 +727,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             if (previous == 0) {
                 uint256 idx = (newWeeks / 256) - (systemWeek / 256);
                 bitfield[idx] =
-                bitfield[idx] |
-                (uint256(1) << (newWeeks % 256));
+                    bitfield[idx] |
+                    (uint256(1) << (newWeeks % 256));
             }
         }
 
@@ -780,7 +780,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
         // use bitfield to iterate acount unlocks and subtract them from the total unlocks
         uint256 bitfield = accountData.updateWeeks[systemWeek / 256] >>
-        (systemWeek % 256);
+            (systemWeek % 256);
         while (locked > 0) {
             systemWeek++;
             if (systemWeek % 256 == 0) {
@@ -840,7 +840,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         totalWeeklyUnlocks[unlockWeek] += uint32(frozen);
         uint256 idx = unlockWeek / 256;
         uint256 bitfield = accountData.updateWeeks[idx] |
-        (uint256(1) << (unlockWeek % 256));
+            (uint256(1) << (unlockWeek % 256));
         accountData.updateWeeks[idx] = bitfield;
         emit LocksUnfrozen(msg.sender, frozen);
     }
@@ -935,21 +935,21 @@ contract TokenLocker is AltheaOwnable, SystemStart {
             if ((bitfield >> (systemWeek % 256)) & uint256(1) == 1) {
                 uint256 lockAmount = unlocks[systemWeek] * lockToTokenRatio;
                 uint256 penaltyOnAmount = (lockAmount * weeksToUnlock) /
-                MAX_LOCK_WEEKS;
+                            MAX_LOCK_WEEKS;
 
                 if (lockAmount - penaltyOnAmount > remaining) {
                     // after penalty, locked amount exceeds remaining required balance
                     // we can complete the withdrawal using only a portion of this lock
                     penaltyOnAmount =
-                    (remaining * MAX_LOCK_WEEKS) /
-                    (MAX_LOCK_WEEKS - weeksToUnlock) -
-                    remaining;
+                        (remaining * MAX_LOCK_WEEKS) /
+                        (MAX_LOCK_WEEKS - weeksToUnlock) -
+                        remaining;
                     uint256 dust = ((penaltyOnAmount + remaining) %
-                    lockToTokenRatio);
+                        lockToTokenRatio);
                     if (dust > 0) penaltyOnAmount += lockToTokenRatio - dust;
                     penaltyTotal += penaltyOnAmount;
                     uint256 lockReduceAmount = (penaltyOnAmount + remaining) /
-                    lockToTokenRatio;
+                                lockToTokenRatio;
                     decreasedWeight += lockReduceAmount * weeksToUnlock;
                     unlocks[systemWeek] -= uint32(lockReduceAmount);
                     totalWeeklyUnlocks[systemWeek] -= uint32(lockReduceAmount);
@@ -959,8 +959,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
                     // the entire lock must be used in the withdrawal
                     penaltyTotal += penaltyOnAmount;
                     decreasedWeight +=
-                    (lockAmount / lockToTokenRatio) *
-                    weeksToUnlock;
+                        (lockAmount / lockToTokenRatio) *
+                        weeksToUnlock;
                     bitfield = bitfield & ~(uint256(1) << (systemWeek % 256));
                     unlocks[systemWeek] = 0;
                     totalWeeklyUnlocks[systemWeek] -= uint32(
@@ -1039,7 +1039,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
         uint256 unlocked;
         uint256 bitfield = accountData.updateWeeks[accountWeek / 256] >>
-        (accountWeek % 256);
+            (accountWeek % 256);
 
         while (accountWeek < systemWeek) {
             accountWeek++;

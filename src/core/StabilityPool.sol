@@ -28,7 +28,7 @@ contract StabilityPool is AltheaOwnable, SystemStart {
     uint256 public constant emissionId = 0;
 
     IDebtToken public immutable debtToken;
-    IAltheaVault public immutable vault;
+    IAltheaVault public vault;
     address public immutable factory;
     address public immutable liquidationManager;
 
@@ -137,12 +137,12 @@ contract StabilityPool is AltheaOwnable, SystemStart {
     event RewardClaimed(address indexed account, address indexed recipient, uint256 claimed);
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         IDebtToken _debtTokenAddress,
         IAltheaVault _vault,
         address _factory,
         address _liquidationManager
-    ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) SystemStart(_altheaCore) {
         debtToken = _debtTokenAddress;
         vault = _vault;
         factory = _factory;
@@ -238,7 +238,7 @@ contract StabilityPool is AltheaOwnable, SystemStart {
      * - Increases deposit and tagged front end's stake, and takes new snapshots for each.
      */
     function provideToSP(uint256 _amount) external {
-        require(!PRISMA_CORE.paused(), "Deposits are paused");
+        require(!ALTHEA_CORE.paused(), "Deposits are paused");
         require(_amount > 0, "StabilityPool: Amount must be non-zero");
 
         _triggerRewardIssuance();

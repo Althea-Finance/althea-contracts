@@ -22,6 +22,10 @@ interface IIncentiveVoting {
     event ClearedVotes(address indexed account, uint256 indexed week);
     event NewVotes(address indexed account, uint256 indexed week, Vote[] newVotes, uint256 totalPointsUsed);
 
+    function setAltheaVaultAddress(address _vaultAddress) external;
+
+    function setTokenLocker(address _locker) external;
+
     function clearRegisteredWeight(address account) external returns (bool);
 
     function clearVote(address account) external;

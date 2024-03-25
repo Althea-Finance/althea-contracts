@@ -6,7 +6,7 @@ import "../../interfaces/IBorrowerOperations.sol";
 import "../../interfaces/ITroveManager.sol";
 import "../../interfaces/ISortedTroves.sol";
 import "../../interfaces/IFactory.sol";
-import "../../dependencies/PrismaBase.sol";
+import "../../dependencies/AltheaBase.sol";
 import "../../dependencies/PrismaMath.sol";
 
 contract MultiCollateralHintHelpers is AltheaBase {

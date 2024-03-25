@@ -12,6 +12,8 @@ interface ILiquidationManager {
     event TroveLiquidated(address indexed _borrower, uint256 _debt, uint256 _coll, uint8 _operation);
     event TroveUpdated(address indexed _borrower, uint256 _debt, uint256 _coll, uint256 _stake, uint8 _operation);
 
+    function setBorrowerOperationsAddress(address _borrowerOperations) external;
+
     function batchLiquidateTroves(address troveManager, address[] calldata _troveArray) external;
 
     function enableTroveManager(address _troveManager) external;

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/IVault.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 
 /**

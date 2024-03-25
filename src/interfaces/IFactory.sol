@@ -25,6 +25,12 @@ interface IFactory {
         DeploymentParams calldata params
     ) external;
 
+    function setLiquidationManagerAddress(address _liquidationManagerAddress) external;
+
+    function setStabilityPoolAddress(address _stabilityPoolAddress) external;
+
+    function setTroveManagerAddress(address _troveManagerAddress) external;
+
     function setImplementations(address _troveManagerImpl, address _sortedTrovesImpl) external;
 
     function PRISMA_CORE() external view returns (address);

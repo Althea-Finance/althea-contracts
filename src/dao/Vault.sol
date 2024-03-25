@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITheaToken.sol";
 import "../interfaces/IEmissionSchedule.sol";
@@ -114,7 +114,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
 
         // ensure the stability pool is registered with receiver ID 0
         _voter.registerNewReceiver();
-        idToReceiver[0] = Receiver({account : _stabilityPool, isActive : true});
+        idToReceiver[0] = Receiver({account: _stabilityPool, isActive: true});
         emit NewReceiverRegistered(_stabilityPool, 0);
     }
 
@@ -176,7 +176,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
             uint256 id = voter.registerNewReceiver();
             assignedIds[i] = id;
             receiverUpdatedWeek[id] = week;
-            idToReceiver[id] = Receiver({account : receiver, isActive : true});
+            idToReceiver[id] = Receiver({account: receiver, isActive: true});
             emit NewReceiverRegistered(receiver, id);
         }
         // notify the receiver contract of the newly registered ID
@@ -532,9 +532,9 @@ contract AltheaVault is AltheaOwnable, SystemStart {
                 require(callback.isContract(), "Callback must be a contract");
             }
             boostDelegation[msg.sender] = Delegation({
-            isEnabled : true,
-            feePct : uint16(feePct),
-            callback : IBoostDelegate(callback)
+                isEnabled: true,
+                feePct: uint16(feePct),
+                callback: IBoostDelegate(callback)
             });
         } else {
             delete boostDelegation[msg.sender];

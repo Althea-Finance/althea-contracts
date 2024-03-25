@@ -7,7 +7,7 @@ import "../../interfaces/ICurveProxy.sol";
 import "../../interfaces/IVault.sol";
 import "../../interfaces/ILiquidityGauge.sol";
 import "../../interfaces/IGaugeController.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../dependencies/AltheaOwnable.sol";
 
 /**
     @title Prisma Curve Deposit Wrapper

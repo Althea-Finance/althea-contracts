@@ -2,7 +2,9 @@
 
 pragma solidity 0.8.19;
 
-import {OFTV2, IERC20, ERC20} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 import "../interfaces/IAltheaCore.sol";
 
@@ -39,7 +41,7 @@ contract DebtToken is OFTV2 {
     // --- Addresses ---
     IAltheaCore private immutable _altheaCore;
     address public immutable stabilityPoolAddress;
-    address public immutable borrowerOperationsAddress;
+    address public borrowerOperationsAddress;
     address public immutable factory;
     address public immutable gasPool;
 
@@ -57,8 +59,9 @@ contract DebtToken is OFTV2 {
         address _layerZeroEndpoint,
         address _factory,
         address _gasPool,
-        uint256 _gasCompensation
-    ) OFT(_name, _symbol, _layerZeroEndpoint) {
+        uint256 _gasCompensation,
+        uint8 _sharedDecimals
+    ) OFTV2(_name, _symbol, _sharedDecimals, _layerZeroEndpoint) {
         stabilityPoolAddress = _stabilityPoolAddress;
         _altheaCore = altheaCore_;
         borrowerOperationsAddress = _borrowerOperationsAddress;
@@ -127,7 +130,7 @@ contract DebtToken is OFTV2 {
 
     // --- External functions ---
 
-    function transfer(address recipient, uint256 amount) public override(IERC20, ERC20) returns (bool) {
+    function transfer(address recipient, uint256 amount) public override(ERC20) returns (bool) {
         _requireValidRecipient(recipient);
         return super.transfer(recipient, amount);
     }
@@ -136,7 +139,7 @@ contract DebtToken is OFTV2 {
         address sender,
         address recipient,
         uint256 amount
-    ) public override(IERC20, ERC20) returns (bool) {
+    ) public override(ERC20) returns (bool) {
         _requireValidRecipient(recipient);
         return super.transferFrom(sender, recipient, amount);
     }

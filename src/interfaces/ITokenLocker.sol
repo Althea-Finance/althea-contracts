@@ -22,6 +22,8 @@ interface ITokenLocker {
     event LocksUnfrozen(address indexed account, uint256 amount);
     event LocksWithdrawn(address indexed account, uint256 withdrawn, uint256 penalty);
 
+    function setIncentiveVotingAddress(address _voterAddress) external;
+
     function extendLock(uint256 _amount, uint256 _weeks, uint256 _newWeeks) external returns (bool);
 
     function extendMany(ExtendLockData[] calldata newExtendLocks) external returns (bool);

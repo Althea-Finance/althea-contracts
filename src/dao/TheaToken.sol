@@ -3,7 +3,9 @@
 pragma solidity 0.8.19;
 
 import "../interfaces/IERC2612.sol";
-import {OFTV2, IERC20, ERC20} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
     @title Prisma Governance Token
@@ -32,8 +34,8 @@ contract TheaToken is OFTV2, IERC2612 {
     bytes32 private immutable _HASHED_NAME;
     bytes32 private immutable _HASHED_VERSION;
 
-    address public immutable locker;
-    address public immutable vault;
+    address public locker;
+    address public vault;
 
     uint256 public maxTotalSupply;
 
@@ -41,7 +43,8 @@ contract TheaToken is OFTV2, IERC2612 {
 
     // --- Functions ---
 
-    constructor(address _vault, address _layerZeroEndpoint, address _locker) OFT(_NAME, _SYMBOL, _layerZeroEndpoint) {
+    constructor(address _vault, address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
+    OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint) {
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
 
@@ -61,7 +64,7 @@ contract TheaToken is OFTV2, IERC2612 {
     }
 
 
-    function setVaultAddress(address _vault) external onlyOwner {
+    function setAltheaVaultAddress(address _vault) external onlyOwner {
         require(vault == address(0), "Vault address already set");
         vault = _vault;
     }

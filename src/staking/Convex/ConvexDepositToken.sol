@@ -5,7 +5,7 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "../../interfaces/ICurveProxy.sol";
 import "../../interfaces/IVault.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../dependencies/AltheaOwnable.sol";
 
 interface IBooster {
     function deposit(uint256 _pid, uint256 _amount, bool _stake) external returns (bool);

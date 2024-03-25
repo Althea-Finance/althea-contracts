@@ -88,6 +88,8 @@ interface ITroveManager {
         uint256 _MCR
     ) external;
 
+    function setAltheaVaultAddress(address _vaultAddress) external;
+
     function setPaused(bool _paused) external;
 
     function setPriceFeed(address _priceFeedAddress) external;
@@ -136,16 +138,16 @@ interface ITroveManager {
     function Troves(
         address
     )
-        external
-        view
-        returns (
-            uint256 debt,
-            uint256 coll,
-            uint256 stake,
-            uint8 status,
-            uint128 arrayIndex,
-            uint256 activeInterestIndex
-        );
+    external
+    view
+    returns (
+        uint256 debt,
+        uint256 coll,
+        uint256 stake,
+        uint8 status,
+        uint128 arrayIndex,
+        uint256 activeInterestIndex
+    );
 
     function accountLatestMint(address) external view returns (uint32 amount, uint32 week, uint32 day);
 

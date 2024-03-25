@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ITroveManager.sol";
 import "../interfaces/IDebtToken.sol";
-import "../dependencies/PrismaBase.sol";
+import "../dependencies/AltheaBase.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/DelegatedOps.sol";
 
 /**
@@ -22,7 +22,7 @@ import "../dependencies/DelegatedOps.sol";
 contract BorrowerOperations is AltheaBase, AltheaOwnable, DelegatedOps {
     using SafeERC20 for IERC20;
 
-    IDebtToken public immutable debtToken;
+    IDebtToken public debtToken;
     address public immutable factory;
     uint256 public minNetDebt;
 

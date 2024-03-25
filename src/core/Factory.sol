@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../interfaces/ITroveManager.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IDebtToken.sol";
@@ -20,10 +20,10 @@ contract Factory is AltheaOwnable {
     using Clones for address;
 
     // fixed single-deployment contracts
-    IDebtToken public immutable debtToken;
-    IStabilityPool public immutable stabilityPool;
-    ILiquidationManager public immutable liquidationManager;
-    IBorrowerOperations public immutable borrowerOperations;
+    IDebtToken public debtToken;
+    IStabilityPool public stabilityPool;
+    ILiquidationManager public liquidationManager;
+    IBorrowerOperations public borrowerOperations;
 
     // implementation contracts, redeployed each time via clone proxy
     address public sortedTrovesImpl;
@@ -63,15 +63,33 @@ contract Factory is AltheaOwnable {
         liquidationManager = _liquidationManager;
     }
 
+    function setLiquidationManagerAddress(address _liquidationManagerAddress) external onlyOwner {
+        require(_liquidationManagerAddress != address(0), "Invalid address");
+        require(address(liquidationManager) == address(0), "liquidationManager address already set");
+        liquidationManager = ILiquidationManager(_liquidationManagerAddress);
+    }
+
+    function setStabilityPoolAddress(address _stabilityPoolAddress) external onlyOwner {
+        require(_stabilityPoolAddress != address(0), "Invalid address");
+        require(address(stabilityPool) == address(0), "stabilityPool address already set");
+        stabilityPool = IStabilityPool(_stabilityPoolAddress);
+    }
+
+    function setTroveManagerAddress(address _troveManagerAddress) external onlyOwner {
+        require(_troveManagerAddress != address(0), "Factory: invalid debt token");
+        require(troveManagerImpl == address(0), "Factory: troveManagerImpl already set");
+        troveManagerImpl = _troveManagerAddress;
+    }
+
     function setDebtTokenAddress(address _debtTokenAddress) external onlyOwner {
         require(_debtTokenAddress != address(0), "Factory: invalid debt token");
-        require(debtToken == IDebtToken(address(0)), "Factory: debt token already set");
+        require(address(debtToken) == address(0), "Factory: debt token already set");
         debtToken = IDebtToken(_debtTokenAddress);
     }
 
     function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external onlyOwner {
         require(_borrowerOperationsAddress != address(0), "Factory: invalid borrower operations");
-        require(borrowerOperations == IBorrowerOperations(address(0)), "Factory: borrower operations already set");
+        require(address(borrowerOperations) == address(0), "Factory: borrower operations already set");
         borrowerOperations = IBorrowerOperations(_borrowerOperationsAddress);
     }
 

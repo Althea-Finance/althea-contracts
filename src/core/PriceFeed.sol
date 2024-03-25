@@ -5,7 +5,7 @@ pragma solidity 0.8.19;
 import "../interfaces/IAggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/PrismaMath.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 
 /**
     @title Prisma Multi Token Price Feed
@@ -127,13 +127,13 @@ contract PriceFeed is AltheaOwnable {
         }
 
         OracleRecord memory record = OracleRecord({
-        chainLinkOracle : newFeed,
-        decimals : newFeed.decimals(),
-        heartbeat : _heartbeat,
-        sharePriceSignature : sharePriceSignature,
-        sharePriceDecimals : sharePriceDecimals,
-        isFeedWorking : true,
-        isEthIndexed : _isEthIndexed
+            chainLinkOracle: newFeed,
+            decimals: newFeed.decimals(),
+            heartbeat: _heartbeat,
+            sharePriceSignature: sharePriceSignature,
+            sharePriceDecimals: sharePriceDecimals,
+            isFeedWorking: true,
+            isEthIndexed: _isEthIndexed
         });
 
         oracleRecords[_token] = record;
@@ -198,8 +198,8 @@ contract PriceFeed is AltheaOwnable {
     ) internal returns (uint256) {
         uint8 decimals = oracle.decimals;
         bool isValidResponse = _isFeedWorking(_currResponse, _prevResponse) &&
-        !_isPriceStale(_currResponse.timestamp, oracle.heartbeat) &&
-        !_isPriceChangeAboveMaxDeviation(_currResponse, _prevResponse, decimals);
+                !_isPriceStale(_currResponse.timestamp, oracle.heartbeat) &&
+                    !_isPriceChangeAboveMaxDeviation(_currResponse, _prevResponse, decimals);
         if (isValidResponse) {
             uint256 scaledPrice = _scalePriceByDigits(uint256(_currResponse.answer), decimals);
             if (oracle.sharePriceSignature != 0) {
@@ -247,11 +247,11 @@ contract PriceFeed is AltheaOwnable {
 
     function _isValidResponse(FeedResponse memory _response) internal view returns (bool) {
         return
-        (_response.success) &&
-        (_response.roundId != 0) &&
-        (_response.timestamp != 0) &&
-        (_response.timestamp <= block.timestamp) &&
-        (_response.answer != 0);
+            (_response.success) &&
+            (_response.roundId != 0) &&
+            (_response.timestamp != 0) &&
+            (_response.timestamp <= block.timestamp) &&
+            (_response.answer != 0);
     }
 
     function _isPriceChangeAboveMaxDeviation(
@@ -294,10 +294,10 @@ contract PriceFeed is AltheaOwnable {
 
     function _storePrice(address _token, uint256 _price, uint256 _timestamp, uint80 roundId) internal {
         priceRecords[_token] = PriceRecord({
-        scaledPrice : uint96(_price),
-        timestamp : uint32(_timestamp),
-        lastUpdated : uint32(block.timestamp),
-        roundId : roundId
+            scaledPrice: uint96(_price),
+            timestamp: uint32(_timestamp),
+            lastUpdated: uint32(block.timestamp),
+            roundId: roundId
         });
         emit PriceRecordUpdated(_token, _price);
     }
@@ -330,19 +330,19 @@ contract PriceFeed is AltheaOwnable {
         if (_currentRoundId == 0) {
             return prevResponse;
         }
-    unchecked {
-        try _priceAggregator.getRoundData(_currentRoundId - 1) returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 /* startedAt */,
-            uint256 timestamp,
-            uint80 /* answeredInRound */
-        ) {
-            prevResponse.roundId = roundId;
-            prevResponse.answer = answer;
-            prevResponse.timestamp = timestamp;
-            prevResponse.success = true;
-        } catch {}
-    }
+        unchecked {
+            try _priceAggregator.getRoundData(_currentRoundId - 1) returns (
+                uint80 roundId,
+                int256 answer,
+                uint256 /* startedAt */,
+                uint256 timestamp,
+                uint80 /* answeredInRound */
+            ) {
+                prevResponse.roundId = roundId;
+                prevResponse.answer = answer;
+                prevResponse.timestamp = timestamp;
+                prevResponse.success = true;
+            } catch {}
+        }
     }
 }
