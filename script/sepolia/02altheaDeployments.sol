@@ -2,24 +2,37 @@
 pragma solidity 0.8.19;
 
 import "lib/forge-std/src/Script.sol";
+import {IAltheaCore} from "src/interfaces/IAltheaCore.sol";
 import {AltheaCore} from "src/core/AltheaCore.sol";
 import {PriceFeed} from "src/core/PriceFeed.sol";
 import {Factory} from "src/core/Factory.sol";
+import {IFactory} from "src/interfaces/IFactory.sol";
 import {SortedTroves} from "src/core/SortedTroves.sol";
+import {ILiquidationManager} from "src/interfaces/ILiquidationManager.sol";
 import {LiquidationManager} from "src/core/LiquidationManager.sol";
 import {GasPool} from "src/core/GasPool.sol";
+import {IBorrowerOperations} from "src/interfaces/IBorrowerOperations.sol";
 import {BorrowerOperations} from "src/core/BorrowerOperations.sol";
+import {IDebtToken} from "src/interfaces/IDebtToken.sol";
 import {DebtToken} from "src/core/DebtToken.sol";
+import {IStabilityPool} from "src/interfaces/IStabilityPool.sol";
 import {StabilityPool} from "src/core/StabilityPool.sol";
+import {TroveManager} from "src/core/TroveManager.sol";
 
+import {IIncentiveVoting} from "src/interfaces/IIncentiveVoting.sol";
+import {IncentiveVoting} from "src/dao/IncentiveVoting.sol";
+import {ITheaToken} from "src/interfaces/ITheaToken.sol";
 import {TheaToken} from "src/dao/TheaToken.sol";
 import {InterimAdmin} from "src/dao/InterimAdmin.sol";
 import {FeeReceiver} from "src/dao/FeeReceiver.sol";
+import {ITokenLocker} from "src/interfaces/ITokenLocker.sol";
 import {TokenLocker} from "src/dao/TokenLocker.sol";
 import {ITheaToken} from "src/interfaces/ITheaToken.sol";
+import {IAltheaVault} from "src/interfaces/IVault.sol";
 import {AltheaVault} from "src/dao/Vault.sol";
+import "src/core/PriceFeed.sol";
+
 import "script/sepolia/00constants.sol";
-import "openzeppelin-contracts\contracts\utils\introspection\ERC1820Implementer.sol";
 
 contract AltheaCoreDeployment is Script {
     AltheaCore altheaCore;
@@ -28,7 +41,7 @@ contract AltheaCoreDeployment is Script {
     TheaToken theaToken;
     TokenLocker tokenLocker;
     AltheaVault altheaVault;
-    InterimAdmin interAdmin;
+    InterimAdmin interimAdmin;
     SortedTroves sortedTroves;
     LiquidationManager liquidationManager;
     Factory factory;
@@ -36,122 +49,150 @@ contract AltheaCoreDeployment is Script {
     BorrowerOperations borrowerOperations;
     DebtToken debtToken;
     StabilityPool stabilityPool;
+    TroveManager troveManager;
+    IncentiveVoting incentiveVoting;
 
 
     function setUp() public virtual {}
 
     function run() public {
         vm.startBroadcast();
-        altheaCore = deployAltheaCore();
+        deployAltheaCore();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        priceFeed = deployPriceFeed();
+        deployPriceFeed();
         altheaCore.setPriceFeed(address(priceFeed));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        feeReceiver = deployFeeReceiver();
+        deployFeeReceiver();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        interimAdmin = deployInterimAdmin();
-        vm.stopBroadcast();
-
-
-        vm.startBroadcast();
-        theaToken = deployTheaToken();
+        deployInterimAdmin();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        tokenLocker = deployTokenLocker();
+        deployTheaToken();
+        vm.stopBroadcast();
+
+        vm.startBroadcast();
+        deployTokenLocker();
         theaToken.setLockerAddress(address(tokenLocker));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        sortedTroves = deploySortedTroves();
+        deploySortedTroves();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        factory = deployFactory();
+        deployFactory();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        liquidationManager = deployLiquidationManager();
+        deployLiquidationManager();
+        factory.setLiquidationManagerAddress(address(liquidationManager));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        gasPool = deployGasPool();
+        deployGasPool();
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        borrowerOperations = deployBorrowerOperations();
+        deployBorrowerOperations();
         factory.setBorrowerOperationsAddress(address(borrowerOperations));
         liquidationManager.setBorrowerOperationsAddress(address(borrowerOperations));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        debtToken = deployDebtToken();
+        deployDebtToken();
         factory.setDebtTokenAddress(address(debtToken));
         borrowerOperations.setDebtTokenAddress(address(debtToken));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        stabilityPool = deployStabilityPool();
+        deployStabilityPool();
+        factory.setStabilityPoolAddress(address(stabilityPool));
+        vm.stopBroadcast();
+
+
+        vm.startBroadcast();
+        deployTroveManager();
+        factory.setTroveManagerAddress(address(troveManager));
         vm.stopBroadcast();
 
         vm.startBroadcast();
-        altheaVault = deployAltheaVault();
-        stabilityPool.setVaultAddress(address(altheaVault));
+        deployIncentiveVoting();
+        tokenLocker.setIncentiveVotingAddress(address(incentiveVoting));
         vm.stopBroadcast();
+
+        vm.startBroadcast();
+        deployAltheaVault();
+        stabilityPool.setAltheaVaultAddress(address(altheaVault));
+        theaToken.setAltheaVaultAddress(address(altheaVault));
+        troveManager.setAltheaVaultAddress(address(altheaVault));
+        incentiveVoting.setAltheaVaultAddress(address(altheaVault));
+        vm.stopBroadcast();
+
+        // new instances of TroveManager and SortedTroves
+//        vm.startBroadcast();
+//        factory.deployNewInstance(
+//            address(0), // debtToken. Will be set later
+//            address(stabilityPool),
+//            address(borrowerOperations),
+//            address(sortedTroves),
+//            address(troveManager),
+//            address(liquidationManager)
+//        );
+//        vm.stopBroadcast();
+
+
     }
 
-    function deployAltheaCore() internal returns (AltheaCore){
+    function deployAltheaCore() internal {
         altheaCore = new AltheaCore(
             OWNER_ADDRESS,
             GUARDIAN_ADDRESS,
             address(0), // Price feed. Will be set later
             FEE_RECEIVER_ADDRESS
         );
-        return altheaCore;
     }
 
+    function deployPriceFeed() internal {
 
-    function deployPriceFeed() internal returns (PriceFeed){
-        address[] memory emptyArray = new address[](0);
+        PriceFeed.OracleSetup[] memory emptyArray = new PriceFeed.OracleSetup[](0);
+
         priceFeed = new PriceFeed(
             address(altheaCore),
             ETH_PRICEFEED,
             emptyArray
         );
-        return priceFeed;
     }
 
 
-    function deployFeeReceiver() internal returns (FeeReceiver){
+    function deployFeeReceiver() internal {
         feeReceiver = new FeeReceiver(
             address(altheaCore)
         );
-        return feeReceiver;
     }
 
-    function deployInterimAdmin() internal returns (InterimAdmin){
-        interAdmin = new InterimAdmin(address(altheaCore));
-        return interAdmin;
+    function deployInterimAdmin() internal {
+        interimAdmin = new InterimAdmin(address(altheaCore));
     }
 
+    function deployTheaToken() internal {
+        uint8 sharedDecimals = 18;
 
-    function deployTheaToken() internal returns (TheaToken){
-        theaToken = new TheaToken(
+        TheaToken theaToken = new TheaToken(
             address(0), // Vault. Will be set later
             address(LAYERZERO_ENDPOINT),
-            address(0) // TokenLocker. Will be set later
+            address(0), // TokenLocker. Will be set later
+            sharedDecimals
         );
-        return theaToken;
     }
 
-    function deployTokenLocker() internal returns (TokenLocker){
-        ITheaToken theaToken = ITheaToken(address(theaToken));
+    function deployTokenLocker() internal {
 
         uint256 lockToTokenRatio = 10 ** 18;
         //TODO: Frontend has to take this into account.
@@ -159,52 +200,48 @@ contract AltheaCoreDeployment is Script {
 
         tokenLocker = new TokenLocker(
             address(altheaCore),
-            theaToken,
-            address(0), // IncentiveVoter. Will be set later
+            ITheaToken(address(theaToken)),
+            IIncentiveVoting(address(0)), // IncentiveVoting. Will be set later
             OWNER_ADDRESS, // should be deployment manager, but owner is used
             lockToTokenRatio
         );
-        return tokenLocker;
     }
 
-    function deploySortedTroves() internal returns (SortedTroves){
+    function deploySortedTroves() internal {
         sortedTroves = new SortedTroves();
-        return sortedTroves;
     }
 
-    function deployFactory() internal returns (Factory){
+    function deployFactory() internal {
         factory = new Factory(
             address(altheaCore),
-            address(0), //debtToken. Will be set later
-            address(0), //stabilityPool. Will be set later
-            address(0), //borrowerOperations. Will be set later
+            IDebtToken(address(0)), //debtToken. Will be set later
+            IStabilityPool(address(0)), //stabilityPool. Will be set later
+            IBorrowerOperations(address(0)), //borrowerOperations. Will be set later
             address(sortedTroves),
             address(0), // TroveManager. Will be set later
-            address(0) // LiquidationManager. Will be set later
+            ILiquidationManager(address(0)) // LiquidationManager. Will be set later
         );
-        return factory;
     }
 
-    function deployLiquidationManager() internal returns (LiquidationManager){
+    function deployLiquidationManager() internal {
 
         uint gasCompensation = 200 * 10 ** 18;
         // in debt units, from Prisma
 
         liquidationManager = new LiquidationManager(
-            address(0), // StabilityPool. Will be set later
-            address(0), // borrowerOperations. Will be set later
+            address(altheaCore),
+            IStabilityPool(address(0)), // StabilityPool. Will be set later
+            IBorrowerOperations(address(0)), // borrowerOperations. Will be set later
             address(factory),
             gasCompensation
         );
-        return liquidationManager;
     }
 
-    function deployGasPool() internal returns (GasPool){
+    function deployGasPool() internal {
         gasPool = new GasPool();
-        return gasPool;
     }
 
-    function deployBorrowerOperations() internal returns (BorrowerOperations) {
+    function deployBorrowerOperations() internal {
         // taken from Prisma
         uint minNetDebt = 180 * 10 ** 18;
 
@@ -219,52 +256,73 @@ contract AltheaCoreDeployment is Script {
             minNetDebt,
             gasCompensation
         );
-        return borrowerOperations;
     }
 
-    function deployDebtToken() internal returns (DebtToken){
+    function deployDebtToken() internal {
 
         string memory name = "aUSD";
         string memory symbol = "aUSD";
 
-        uint gasCompensation = 200 * 10 ** 18;
+        uint gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
+        uint8 sharedDecimals = 18;
 
         debtToken = new DebtToken(
             name,
             symbol,
             address(0), // StabilityPool. Will be set later
             address(borrowerOperations),
-            altheaCore,
+            IAltheaCore(address(altheaCore)),
             address(LAYERZERO_ENDPOINT),
             address(factory),
             address(gasPool),
-            gasCompensation
+            gasCompensation,
+            sharedDecimals
         );
-        return debtToken;
     }
 
-    function deployStabilityPool() internal returns (StabilityPool) {
+    function deployStabilityPool() internal {
         stabilityPool = new StabilityPool(
             address(altheaCore),
-            address(debtToken),
-            address(0), //Vault. Will be set later
+            IDebtToken(address(debtToken)),
+            IAltheaVault(address(0)), //Vault. Will be set later
             address(factory),
             address(liquidationManager)
         );
-        return stabilityPool;
     }
 
-    function deployAltheaVault() internal returns (AltheaVault){
+
+    function deployTroveManager() internal {
+
+        uint gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
+
+        troveManager = new TroveManager(
+            address(altheaCore),
+            address(gasPool),
+            address(debtToken),
+            address(borrowerOperations),
+            address(0), // AltheaVault. Will be set later
+            address(liquidationManager),
+            gasCompensation
+        );
+    }
+
+    function deployIncentiveVoting() internal {
+        incentiveVoting = new IncentiveVoting(
+            address(altheaCore),
+            ITokenLocker(address(tokenLocker)),
+            address(0) //AltheaVault. Will be set later
+        );
+    }
+
+    function deployAltheaVault() internal {
         altheaVault = new AltheaVault(
             address(altheaCore),
-            theaToken,
-            tokenLocker,
-            address(0), // IncentiveVoter. Will be set later
+            ITheaToken(address(theaToken)),
+            ITokenLocker(address(tokenLocker)),
+            IIncentiveVoting(address(incentiveVoting)),
             address(stabilityPool),
             OWNER_ADDRESS // TODO: should be deployment manager
         );
-        return vault;
     }
-
 
 }

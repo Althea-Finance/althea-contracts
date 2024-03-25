@@ -12,7 +12,7 @@ contract DeployMocks is Script {
         console.log("Deployed MockStablecoin at:", address(mockStablecoin));
 
         MockMetisDerivative mockMetisDerivative = new MockMetisDerivative();
-        console.log("Deployed mockMetisDerivative at:", address(mockMetis));
+        console.log("Deployed mockMetisDerivative at:", address(mockMetisDerivative));
 
         vm.stopBroadcast();
     }
