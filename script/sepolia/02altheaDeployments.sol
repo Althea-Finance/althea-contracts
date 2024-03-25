@@ -184,7 +184,7 @@ contract AltheaCoreDeployment is Script {
     function deployTheaToken() internal {
         uint8 sharedDecimals = 18;
 
-        TheaToken theaToken = new TheaToken(
+        theaToken = new TheaToken(
             address(0), // Vault. Will be set later
             address(LAYERZERO_ENDPOINT),
             address(0), // TokenLocker. Will be set later
