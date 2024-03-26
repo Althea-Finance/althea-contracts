@@ -13,21 +13,21 @@ contract AltheaCoreDeployment is Script {
     function run() public {
 
         vm.startBroadcast();
-        deployTheaToken();
+//        deployTheaToken();
         vm.stopBroadcast();
 
     }
 
-    function deployTheaToken() internal {
-        uint8 sharedDecimals = 18;
-
-        theaToken = new TheaToken(
-            address(0), // Vault. Will be set later
-            address(LAYERZERO_ENDPOINT),
-            address(0), // TokenLocker. Will be set later
-            sharedDecimals
-        );
-    }
+//    function deployTheaToken() internal {
+//        uint8 sharedDecimals = 18;
+//
+//        theaToken = new TheaToken(
+//            address(0), // Vault. Will be set later
+//            address(LAYERZERO_ENDPOINT),
+//            address(0), // TokenLocker. Will be set later
+//            sharedDecimals
+//        );
+//    }
 
 
 }

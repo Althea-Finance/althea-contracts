@@ -126,13 +126,12 @@ contract AltheaCoreDeployment is Script {
         tokenLocker.setIncentiveVotingAddress(address(incentiveVoting));
         vm.stopBroadcast();
 
-        vm.startBroadcast();
-        deployAltheaVault();
-        stabilityPool.setAltheaVaultAddress(address(altheaVault));
-        theaToken.setAltheaVaultAddress(address(altheaVault));
-        troveManager.setAltheaVaultAddress(address(altheaVault));
-        incentiveVoting.setAltheaVaultAddress(address(altheaVault));
-        vm.stopBroadcast();
+//        vm.startBroadcast();
+//        deployAltheaVault();
+//        stabilityPool.setAltheaVaultAddress(address(altheaVault));
+//        troveManager.setAltheaVaultAddress(address(altheaVault));
+//        incentiveVoting.setAltheaVaultAddress(address(altheaVault));
+//        vm.stopBroadcast();
 
         // new instances of TroveManager and SortedTroves
 //        vm.startBroadcast();
@@ -303,15 +302,15 @@ contract AltheaCoreDeployment is Script {
         );
     }
 
-    function deployAltheaVault() internal {
-        altheaVault = new AltheaVault(
-            address(altheaCore),
-            theaToken,
-            ITokenLocker(address(tokenLocker)),
-            IIncentiveVoting(address(incentiveVoting)),
-            address(stabilityPool),
-            OWNER_ADDRESS // TODO: should be deployment manager
-        );
-    }
+//    function deployAltheaVault() internal {
+//        altheaVault = new AltheaVault(
+//            address(altheaCore),
+//            IoTHEA,
+//            ITokenLocker(address(tokenLocker)),
+//            IIncentiveVoting(address(incentiveVoting)),
+//            address(stabilityPool),
+//            OWNER_ADDRESS // TODO: should be deployment manager
+//        );
+//    }
 
 }
