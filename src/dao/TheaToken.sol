@@ -35,7 +35,7 @@ contract TheaToken is OFTV2, IERC2612 {
     bytes32 private immutable _HASHED_VERSION;
 
     address public locker;
-    address public vault;
+    address public allocationVesting;
 
     uint256 public maxTotalSupply;
 
@@ -43,7 +43,7 @@ contract TheaToken is OFTV2, IERC2612 {
 
     // --- Functions ---
 
-    constructor(address _vault, address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
+    constructor(address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
     OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint) {
         bytes32 hashedName = keccak256(bytes(_NAME));
         bytes32 hashedVersion = keccak256(bytes(version));
@@ -54,29 +54,23 @@ contract TheaToken is OFTV2, IERC2612 {
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(_TYPE_HASH, hashedName, hashedVersion);
 
         locker = _locker;
-        vault = _vault;
+    }
+
+    function setAllocationVestingAddress(address _allocationVesting) external onlyOwner {
+        require(allocationVesting == address(0), "AllocationVesting address already set");
+        allocationVesting = _allocationVesting;
+    }
+
+    function mintToAllocationVesting(address to, uint256 amount) external {
+        // caller must be allocationVesting
+        require(msg.sender == allocationVesting, "Not allocationVesting");
+        _mint(to, amount);
     }
 
 
     function setLockerAddress(address _locker) external onlyOwner {
         require(locker == address(0), "Locker address already set");
         locker = _locker;
-    }
-
-
-    function setAltheaVaultAddress(address _vault) external onlyOwner {
-        require(vault == address(0), "Vault address already set");
-        vault = _vault;
-    }
-
-    function mintToVault(uint256 _totalSupply) external returns (bool) {
-        require(msg.sender == vault);
-        require(maxTotalSupply == 0);
-
-        _mint(vault, _totalSupply);
-        maxTotalSupply = _totalSupply;
-
-        return true;
     }
 
     // --- EIP 2612 functionality ---
