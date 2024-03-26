@@ -26,7 +26,7 @@ interface ITheaToken {
 
     function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload) external;
 
-    function mintToVault(uint256 _totalSupply) external returns (bool);
+    function mintToAllocationVesting(address _to, uint256 _amount) external;
 
     function nonblockingLzReceive(
         uint16 _srcChainId,
@@ -61,7 +61,7 @@ interface ITheaToken {
 
     function setLockerAddress(address _locker) external;
 
-    function setAltheaVaultAddress(address _vault) external;
+    function setAllocationVestingAddress(address _vault) external;
 
     function setTrustedRemote(uint16 _srcChainId, bytes calldata _path) external;
 
