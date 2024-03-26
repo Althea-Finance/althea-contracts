@@ -32,6 +32,7 @@ contract oTheaRedemptions is AltheaOwnable {
 
     error NotEnoughMetisValue();
     error TooMuchMetisValue();
+    error InvalidParameter();
 
     event PriceFeedSet(address priceFeed);
     event DiscountSet(uint256 discountBp);
@@ -51,7 +52,7 @@ contract oTheaRedemptions is AltheaOwnable {
         // convert othea to metis, using oracles
         uint256 amountInMetisValue = _convertTheaToMetis(oTheaAmount);
         // apply discount
-        uint256 requiredMetisValue = _applyDiscount(amountInMetisValue);
+        uint256 requiredMetisValue = _applyCurrentDiscount(amountInMetisValue);
 
         // check msg.value is correct
         // we accept more value than the required to account for slippage in case the oracle price fluctuates.
@@ -86,9 +87,11 @@ contract oTheaRedemptions is AltheaOwnable {
         emit PriceFeedSet(_priceFeed);
     }
 
+    // discountBp is in basis points (10000 == 100% discount)
+    // if discountBp = 2500, then 25% discount, which means that the remaining 75% would need to be paid in METIS
     function setRedemptionDiscount(uint256 discountBp) external onlyOwner {
-        require(discountBp < BASIS_POINTS, "Invalid discount");
-        require(discountBp > 0, "Invalid discount");
+        // intentionally allowing 0% and 100% discounts
+        if (discountBp > BASIS_POINTS) revert InvalidParameter();
         redemptionDiscountBp = discountBp;
         emit DiscountSet(discountBp);
     }
@@ -97,7 +100,7 @@ contract oTheaRedemptions is AltheaOwnable {
 
     // visibility cannot be view, because PriceFeed can be state-changing ...
     function getEstimatedRequiredMetisForRedemption(uint256 oTheaAmount) public returns (uint256 estimatedValue) {
-        estimatedValue = _applyDiscount(_convertTheaToMetis(oTheaAmount));
+        estimatedValue = _applyCurrentDiscount(_convertTheaToMetis(oTheaAmount));
     }
 
     ///////////////////////////  INTERNAL  /////////////////////////////
@@ -114,7 +117,7 @@ contract oTheaRedemptions is AltheaOwnable {
     }
 
     // discount will subject to change via dao proposal
-    function _applyDiscount(uint256 amount) internal view returns (uint256 amountWithDiscount) {
-        amountWithDiscount = ((BASIS_POINTS - redemptionDiscountBp) * amount) / BASIS_POINTS;
+    function _applyCurrentDiscount(uint256 amount) internal view returns (uint256 amountWithDiscount) {
+        amountWithDiscount = (amount * (BASIS_POINTS - redemptionDiscountBp)) / BASIS_POINTS;
     }
 }
