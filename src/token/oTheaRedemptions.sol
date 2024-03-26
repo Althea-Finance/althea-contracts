@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPriceFeed} from "../interfaces/IPriceFeed.sol";
 import {AltheaOwnable} from "../dependencies/AltheaOwnable.sol";
+import "../interfaces/IERC2612.sol";
 
 /**
     @title oTHEA Redemptions manager
@@ -14,10 +15,16 @@ import {AltheaOwnable} from "../dependencies/AltheaOwnable.sol";
 
 interface ITHEA {
     function mintTo(address to, uint256 amount) external;
+
 }
 
-interface IoTHEA {
+interface IoTHEA is IERC20 {
     function burnFrom(address from, uint256 amount) external;
+
+    function mintToVault(uint256 amount) external;
+
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+
 }
 
 contract oTheaRedemptions is AltheaOwnable {
@@ -74,7 +81,7 @@ contract oTheaRedemptions is AltheaOwnable {
         uint256 remainingMetis = msg.value - requiredMetisValue;
         // Intentionally not checking the bool return value of the call. As returning remaining value is not critical
         // We don't want redemptions to fail
-        (bool success, ) = payable(msg.sender).call{value: remainingMetis}("");
+        (bool success,) = payable(msg.sender).call{value: remainingMetis}("");
         {success;} // silence the annoying warning from above
     }
 
