@@ -38,7 +38,6 @@ contract AltheaCoreDeployment is Script {
     AltheaCore altheaCore;
     PriceFeed priceFeed;
     FeeReceiver feeReceiver;
-    TheaToken theaToken;
     TokenLocker tokenLocker;
     AltheaVault altheaVault;
     InterimAdmin interimAdmin;
@@ -52,8 +51,11 @@ contract AltheaCoreDeployment is Script {
     TroveManager troveManager;
     IncentiveVoting incentiveVoting;
 
+    ITheaToken theaToken;
 
-    function setUp() public virtual {}
+    function setUp() public virtual {
+        theaToken = ITheaToken(THEA_TOKEN);
+    }
 
     function run() public {
         vm.startBroadcast();
@@ -73,9 +75,6 @@ contract AltheaCoreDeployment is Script {
         deployInterimAdmin();
         vm.stopBroadcast();
 
-        vm.startBroadcast();
-        deployTheaToken();
-        vm.stopBroadcast();
 
         vm.startBroadcast();
         deployTokenLocker();
@@ -181,16 +180,6 @@ contract AltheaCoreDeployment is Script {
         interimAdmin = new InterimAdmin(address(altheaCore));
     }
 
-    function deployTheaToken() internal {
-        uint8 sharedDecimals = 18;
-
-        theaToken = new TheaToken(
-            address(0), // Vault. Will be set later
-            address(LAYERZERO_ENDPOINT),
-            address(0), // TokenLocker. Will be set later
-            sharedDecimals
-        );
-    }
 
     function deployTokenLocker() internal {
 
@@ -200,7 +189,7 @@ contract AltheaCoreDeployment is Script {
 
         tokenLocker = new TokenLocker(
             address(altheaCore),
-            ITheaToken(address(theaToken)),
+            theaToken,
             IIncentiveVoting(address(0)), // IncentiveVoting. Will be set later
             OWNER_ADDRESS, // should be deployment manager, but owner is used
             lockToTokenRatio
@@ -317,7 +306,7 @@ contract AltheaCoreDeployment is Script {
     function deployAltheaVault() internal {
         altheaVault = new AltheaVault(
             address(altheaCore),
-            ITheaToken(address(theaToken)),
+            theaToken,
             ITokenLocker(address(tokenLocker)),
             IIncentiveVoting(address(incentiveVoting)),
             address(stabilityPool),
