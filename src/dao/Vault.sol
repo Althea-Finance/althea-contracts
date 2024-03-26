@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITheaToken.sol";
+import {IoTHEA} from "../token/oTHeaRedemptions.sol";
 import "../interfaces/IEmissionSchedule.sol";
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITokenLocker.sol";
@@ -34,7 +35,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
     using Address for address;
     using SafeERC20 for IERC20;
 
-    ITheaToken public immutable theaToken;
+    IoTHEA public immutable oTheaToken;
     ITokenLocker public immutable locker;
     IIncentiveVoting public immutable voter;
     address public immutable deploymentManager;
@@ -100,13 +101,13 @@ contract AltheaVault is AltheaOwnable, SystemStart {
 
     constructor(
         address _altheaCore,
-        ITheaToken _token,
+        IoTHEA _token,
         ITokenLocker _locker,
         IIncentiveVoting _voter,
         address _stabilityPool,
         address _manager
     ) AltheaOwnable(_altheaCore) SystemStart(_altheaCore) {
-        theaToken = _token;
+        oTheaToken = _token;
         locker = _locker;
         voter = _voter;
         lockToTokenRatio = _locker.lockToTokenRatio();
@@ -131,7 +132,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
         boostCalculator = _boostCalculator;
 
         // mint totalSupply to vault - this reverts after the first call
-        theaToken.mintToVault(totalSupply);
+        oTheaToken.mintToVault(totalSupply);
 
         // set initial fixed weekly emissions
         uint256 totalAllocated;
@@ -150,7 +151,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
             address receiver = initialAllowances[i].receiver;
             totalAllocated += amount;
             // initial allocations are given as approvals
-            theaToken.increaseAllowance(receiver, amount);
+            oTheaToken.increaseAllowance(receiver, amount);
         }
 
         unallocatedTotal = uint128(totalSupply - totalAllocated);
@@ -228,7 +229,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
         @notice Transfer tokens out of the vault
      */
     function transferTokens(IERC20 token, address receiver, uint256 amount) external onlyOwner returns (bool) {
-        if (address(token) == address(theaToken)) {
+        if (address(token) == address(oTheaToken)) {
             require(receiver != address(this), "Self transfer denied");
             uint256 unallocated = unallocatedTotal - amount;
             unallocatedTotal = uint128(unallocated);
@@ -243,7 +244,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
         @notice Receive PRISMA tokens and add them to the unallocated supply
      */
     function increaseUnallocatedSupply(uint256 amount) external returns (bool) {
-        theaToken.transferFrom(msg.sender, address(this), amount);
+        oTheaToken.transferFrom(msg.sender, address(this), amount);
         uint256 unallocated = unallocatedTotal + amount;
         unallocatedTotal = uint128(unallocated);
         emit UnallocatedSupplyIncreased(amount, unallocated);
@@ -460,7 +461,7 @@ contract AltheaVault is AltheaOwnable, SystemStart {
         uint256 _lockWeeks = lockWeeks;
         if (_lockWeeks == 0) {
             storedPendingReward[claimant] = 0;
-            theaToken.transfer(receiver, amount);
+            oTheaToken.transfer(receiver, amount);
         } else {
             // lock for receiver and store remaining balance in `storedPendingReward`
             uint256 lockAmount = amount / lockToTokenRatio;
