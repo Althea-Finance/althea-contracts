@@ -154,8 +154,8 @@ contract AltheaCoreDeployment is Script {
         altheaCore = new AltheaCore(
             OWNER_ADDRESS,
             GUARDIAN_ADDRESS,
-            address(0), // Price feed. Will be set later
-            FEE_RECEIVER_ADDRESS
+            address(0), // PriceFeed contract. Will be set later
+            FEE_RECEIVER_ADDRESS // can be updated later
         );
     }
 
