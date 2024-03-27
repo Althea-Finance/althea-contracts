@@ -9,10 +9,10 @@ import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156
 import "../interfaces/IAltheaCore.sol";
 
 /**
-    @title Prisma Debt Token "acUSD"
-    @notice CDP minted against collateral deposits within `TroveManager`.
-            This contract has a 1:n relationship with multiple deployments of `TroveManager`,
-            each of which hold one collateral type which may be used to mint this token.
+ * @title Prisma Debt Token "acUSD"
+ *     @notice CDP minted against collateral deposits within `TroveManager`.
+ *             This contract has a 1:n relationship with multiple deployments of `TroveManager`,
+ *             each of which hold one collateral type which may be used to mint this token.
  */
 contract DebtToken is OFTV2 {
     string public constant version = "1";
@@ -135,11 +135,7 @@ contract DebtToken is OFTV2 {
         return super.transfer(recipient, amount);
     }
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public override(ERC20) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override(ERC20) returns (bool) {
         _requireValidRecipient(recipient);
         return super.transferFrom(sender, recipient, amount);
     }
@@ -195,12 +191,10 @@ contract DebtToken is OFTV2 {
     // This function can reenter, but it doesn't pose a risk because it always preserves the property that the amount
     // minted at the beginning is always recovered and burned at the end, or else the entire function will revert.
     // slither-disable-next-line reentrancy-no-eth
-    function flashLoan(
-        IERC3156FlashBorrower receiver,
-        address token,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bool) {
+    function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data)
+        external
+        returns (bool)
+    {
         require(token == address(this), "ERC20FlashMint: wrong token");
         require(amount <= maxFlashLoan(token), "ERC20FlashMint: amount exceeds maxFlashLoan");
         uint256 fee = _flashFee(amount);
@@ -225,15 +219,9 @@ contract DebtToken is OFTV2 {
         }
     }
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function permit(address owner, address spender, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external
+    {
         require(deadline >= block.timestamp, "Debt: expired deadline");
         bytes32 digest = keccak256(
             abi.encodePacked(

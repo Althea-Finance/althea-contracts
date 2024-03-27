@@ -50,14 +50,14 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
         tokenLocker = _tokenLocker;
     }
 
-    function feeTokensLength() external view returns (uint) {
+    function feeTokensLength() external view returns (uint256) {
         return feeTokens.length;
     }
 
     /**
-        @notice Get an array of claimable amounts of different tokens accrued from protocol fees
-        @param account Address to query claimable amounts for
-        @param tokens List of tokens to query claimable amounts of
+     * @notice Get an array of claimable amounts of different tokens accrued from protocol fees
+     *     @param account Address to query claimable amounts for
+     *     @param tokens List of tokens to query claimable amounts of
      */
     function claimable(address account, address[] calldata tokens) external view returns (uint256[] memory amounts) {
         uint256 currentWeek = getWeek();
@@ -80,16 +80,17 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
     }
 
     /**
-        @notice Get the current weekly claim bounds for claimable tokens for `account`
-        @dev Returned values are used as inputs in `claimWithBounds`. A response of
-             `(0, 0)` indicates the account has nothing claimable.
-        @param account Address to query claim bounds for
-        @param token Token to query claim bounds for
+     * @notice Get the current weekly claim bounds for claimable tokens for `account`
+     *     @dev Returned values are used as inputs in `claimWithBounds`. A response of
+     *          `(0, 0)` indicates the account has nothing claimable.
+     *     @param account Address to query claim bounds for
+     *     @param token Token to query claim bounds for
      */
-    function getClaimBounds(
-        address account,
-        address token
-    ) external view returns (uint256 claimFromWeek, uint256 claimUntilWeek) {
+    function getClaimBounds(address account, address token)
+        external
+        view
+        returns (uint256 claimFromWeek, uint256 claimUntilWeek)
+    {
         uint256 currentWeek = getWeek();
         if (currentWeek == 0) return (0, 0);
 
@@ -133,9 +134,9 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
     }
 
     /**
-        @notice Register a new fee token to be distributed
-        @dev Only callable by the owner. Once registered, depositing new fees
-             is permissionless.
+     * @notice Register a new fee token to be distributed
+     *     @dev Only callable by the owner. Once registered, depositing new fees
+     *          is permissionless.
      */
     function registerNewFeeToken(address token) external onlyOwner returns (bool) {
         require(!feeTokenData[token].isRegistered, "Already registered");
@@ -147,10 +148,10 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
     }
 
     /**
-        @notice Deposit protocol fees into the contract, to be distributed to lockers
-        @dev Caller must have given approval for this contract to transfer `token`
-        @param token Token being deposited
-        @param amount Amount of the token to deposit
+     * @notice Deposit protocol fees into the contract, to be distributed to lockers
+     *     @dev Caller must have given approval for this contract to transfer `token`
+     *     @param token Token being deposited
+     *     @param amount Amount of the token to deposit
      */
     function depositFeeToken(address token, uint256 amount) external returns (bool) {
         FeeTokenData memory data = feeTokenData[token];
@@ -171,18 +172,18 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
     }
 
     /**
-        @notice Claim all accrued protocol fees available to the caller
-        @dev Accounts that claim frequently and maintain lock weight should claim
-             using this method.
-        @param receiver Address to transfer claimed fees to
-        @param tokens Array of tokens to claim
-        @return claimedAmounts Array of claimed amounts
+     * @notice Claim all accrued protocol fees available to the caller
+     *     @dev Accounts that claim frequently and maintain lock weight should claim
+     *          using this method.
+     *     @param receiver Address to transfer claimed fees to
+     *     @param tokens Array of tokens to claim
+     *     @return claimedAmounts Array of claimed amounts
      */
-    function claim(
-        address account,
-        address receiver,
-        address[] calldata tokens
-    ) external callerOrDelegated(account) returns (uint256[] memory claimedAmounts) {
+    function claim(address account, address receiver, address[] calldata tokens)
+        external
+        callerOrDelegated(account)
+        returns (uint256[] memory claimedAmounts)
+    {
         uint256 currentWeek = getWeek();
         require(currentWeek > 0, "No claims in first week");
 
@@ -212,26 +213,26 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
     }
 
     /**
-        @notice Claim accrued protocol fees within a bounded period
-        @dev Avoids excess gas usage when an account's first lock is many weeks
-             after fee distribution has started, or there is a significant period
-             without new fees being added. `claimFromWeek` and `claimUntilWeek`
-             can be obtained by calling `getClaimBounds`. Note that if `claimFromWeek`
-             is set higher than `accountClaimWeek`, any fees earned in that period
-             are forever lost.
-        @param receiver Address to transfer claimed fees to
-        @param claims Array of (token, claimFromWeek, claimUntilWeek)
-        @return claimedAmounts Array of claimed amounts
+     * @notice Claim accrued protocol fees within a bounded period
+     *     @dev Avoids excess gas usage when an account's first lock is many weeks
+     *          after fee distribution has started, or there is a significant period
+     *          without new fees being added. `claimFromWeek` and `claimUntilWeek`
+     *          can be obtained by calling `getClaimBounds`. Note that if `claimFromWeek`
+     *          is set higher than `accountClaimWeek`, any fees earned in that period
+     *          are forever lost.
+     *     @param receiver Address to transfer claimed fees to
+     *     @param claims Array of (token, claimFromWeek, claimUntilWeek)
+     *     @return claimedAmounts Array of claimed amounts
      */
-    function claimWithBounds(
-        address account,
-        address receiver,
-        BoundedClaim[] calldata claims
-    ) external callerOrDelegated(account) returns (uint256[] memory claimedAmounts) {
+    function claimWithBounds(address account, address receiver, BoundedClaim[] calldata claims)
+        external
+        callerOrDelegated(account)
+        returns (uint256[] memory claimedAmounts)
+    {
         uint256 currentWeek = getWeek();
         claimedAmounts = new uint256[](claims.length);
         uint256 length = claims.length;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             address token = claims[i].token;
             uint256 claimFromWeek = claims[i].claimFromWeek;
             uint256 claimUntilWeek = claims[i].claimUntilWeek;
@@ -255,12 +256,11 @@ contract FeeDistributor is AltheaOwnable, SystemStart, DelegatedOps {
         return claimedAmounts;
     }
 
-    function _getClaimable(
-        address account,
-        address token,
-        uint256 claimFromWeek,
-        uint256 claimUntilWeek
-    ) internal view returns (uint256 claimableAmount) {
+    function _getClaimable(address account, address token, uint256 claimFromWeek, uint256 claimUntilWeek)
+        internal
+        view
+        returns (uint256 claimableAmount)
+    {
         uint128[65535] storage feeAmounts = weeklyFeeAmounts[token];
         for (uint256 i = claimFromWeek; i < claimUntilWeek; i++) {
             uint256 feeAmount = feeAmounts[i];

@@ -7,11 +7,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IAltheaCore.sol";
 
 /**
-    @title Prisma DAO Interim Admin
-    @notice Temporary ownership contract for all Prisma contracts during bootstrap phase. Allows executing
-            arbitrary function calls by the deployer following a minimum time before execution.
-            The protocol guardian can cancel any proposals and cannot be replaced.
-            To avoid a malicious flood attack the number of daily proposals is capped.
+ * @title Prisma DAO Interim Admin
+ *     @notice Temporary ownership contract for all Prisma contracts during bootstrap phase. Allows executing
+ *             arbitrary function calls by the deployer following a minimum time before execution.
+ *             The protocol guardian can cancel any proposals and cannot be replaced.
+ *             To avoid a malicious flood attack the number of daily proposals is capped.
  */
 contract InterimAdmin is Ownable {
     using Address for address;
@@ -53,42 +53,41 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @notice The total number of votes created
+     * @notice The total number of votes created
      */
     function getProposalCount() external view returns (uint256) {
         return proposalData.length;
     }
 
     /**
-        @notice Gets information on a specific proposal
+     * @notice Gets information on a specific proposal
      */
-    function getProposalData(
-        uint256 id
-    )
-    external
-    view
-    returns (uint256 createdAt, uint256 canExecuteAfter, bool executed, bool canExecute, Action[] memory payload)
+    function getProposalData(uint256 id)
+        external
+        view
+        returns (uint256 createdAt, uint256 canExecuteAfter, bool executed, bool canExecute, Action[] memory payload)
     {
         Proposal memory proposal = proposalData[id];
         payload = proposalPayloads[id];
-        canExecute = (!proposal.processed &&
-        proposal.canExecuteAfter < block.timestamp &&
-        proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp);
+        canExecute = (
+            !proposal.processed && proposal.canExecuteAfter < block.timestamp
+                && proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp
+        );
 
         return (proposal.createdAt, proposal.canExecuteAfter, proposal.processed, canExecute, payload);
     }
 
     /**
-        @notice Create a new proposal
-        @param payload Tuple of [(target address, calldata), ... ] to be
-                       executed if the proposal is passed.
+     * @notice Create a new proposal
+     *     @param payload Tuple of [(target address, calldata), ... ] to be
+     *                    executed if the proposal is passed.
      */
     function createNewProposal(Action[] calldata payload) external onlyOwner {
         require(payload.length > 0, "Empty payload");
         uint256 day = block.timestamp / 1 days;
         uint256 currentDailyCount = dailyProposalsCount[day];
         require(currentDailyCount < MAX_DAILY_PROPOSALS, "MAX_DAILY_PROPOSALS");
-        uint loopEnd = payload.length;
+        uint256 loopEnd = payload.length;
         for (uint256 i; i < loopEnd; i++) {
             require(!_isSetGuardianPayload(payload[i]), "Cannot change guardian");
         }
@@ -96,10 +95,10 @@ contract InterimAdmin is Ownable {
         uint256 idx = proposalData.length;
         proposalData.push(
             Proposal({
-        createdAt : uint32(block.timestamp),
-        canExecuteAfter : uint32(block.timestamp + MIN_TIME_TO_EXECUTION),
-        processed : false
-        })
+                createdAt: uint32(block.timestamp),
+                canExecuteAfter: uint32(block.timestamp + MIN_TIME_TO_EXECUTION),
+                processed: false
+            })
         );
 
         for (uint256 i = 0; i < payload.length; i++) {
@@ -109,11 +108,11 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @notice Cancels a pending proposal
-        @dev Can only be called by the guardian to avoid malicious proposals
-             The guardian cannot cancel a proposal where the only action is
-             changing the guardian.
-        @param id Proposal ID
+     * @notice Cancels a pending proposal
+     *     @dev Can only be called by the guardian to avoid malicious proposals
+     *          The guardian cannot cancel a proposal where the only action is
+     *          changing the guardian.
+     *     @param id Proposal ID
      */
     function cancelProposal(uint256 id) external {
         require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");
@@ -123,9 +122,9 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @notice Execute a proposal's payload
-        @dev Can only be called if the proposal has been active for at least `MIN_TIME_TO_EXECUTION`
-        @param id Proposal ID
+     * @notice Execute a proposal's payload
+     *     @dev Can only be called if the proposal has been active for at least `MIN_TIME_TO_EXECUTION`
+     *     @param id Proposal ID
      */
     function executeProposal(uint256 id) external onlyOwner {
         require(id < proposalData.length, "Invalid ID");
@@ -149,15 +148,15 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @dev Allow accepting ownership transfer of `AltheaCore`
+     * @dev Allow accepting ownership transfer of `AltheaCore`
      */
     function acceptTransferOwnership() external onlyOwner {
         altheaCore.acceptTransferOwnership();
     }
 
     /**
-        @dev Restricted method to transfer ownership of `AltheaCore`
-             to the actual Admin voting contract
+     * @dev Restricted method to transfer ownership of `AltheaCore`
+     *          to the actual Admin voting contract
      */
     function transferOwnershipToAdminVoting() external {
         require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");

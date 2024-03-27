@@ -10,12 +10,10 @@ import "../../dependencies/AltheaOwnable.sol";
 interface IBooster {
     function deposit(uint256 _pid, uint256 _amount, bool _stake) external returns (bool);
 
-    function poolInfo(
-        uint256 _pid
-    )
-    external
-    view
-    returns (address lpToken, address token, address gauge, address crvRewards, address stash, bool shutdown);
+    function poolInfo(uint256 _pid)
+        external
+        view
+        returns (address lpToken, address token, address gauge, address crvRewards, address stash, bool shutdown);
 }
 
 interface IBaseRewardPool {
@@ -31,10 +29,10 @@ interface IConvexStash {
 }
 
 /**
-    @title Prisma Convex Deposit Wrapper
-    @notice Standard ERC20 interface around a deposit of a Curve LP token into Convex.
-            Tokens are minted by depositing Curve LP tokens, and burned to receive the LP
-            tokens back. Holders may claim PRISMA emissions on top of the earned CRV and CVX.
+ * @title Prisma Convex Deposit Wrapper
+ *     @notice Standard ERC20 interface around a deposit of a Curve LP token into Convex.
+ *             Tokens are minted by depositing Curve LP tokens, and burned to receive the LP
+ *             tokens back. Holders may claim PRISMA emissions on top of the earned CRV and CVX.
  */
 contract ConvexDepositToken is AltheaOwnable {
     IERC20 public immutable PRISMA;
@@ -110,7 +108,7 @@ contract ConvexDepositToken is AltheaOwnable {
 
     function initialize(uint256 pid) external {
         require(address(lpToken) == address(0), "Already initialized");
-        (address _lpToken, , , address _crvRewards, address _stash,) = booster.poolInfo(pid);
+        (address _lpToken,,, address _crvRewards, address _stash,) = booster.poolInfo(pid);
 
         depositPid = pid;
         lpToken = IERC20(_lpToken);
@@ -199,9 +197,10 @@ contract ConvexDepositToken is AltheaOwnable {
         return amounts;
     }
 
-    function claimReward(
-        address receiver
-    ) external returns (uint256 prismaAmount, uint256 crvAmount, uint256 cvxAmount) {
+    function claimReward(address receiver)
+        external
+        returns (uint256 prismaAmount, uint256 crvAmount, uint256 cvxAmount)
+    {
         uint128[3] memory amounts = _claimReward(msg.sender, receiver);
         vault.transferAllocatedTokens(msg.sender, receiver, amounts[0]);
 
@@ -217,9 +216,11 @@ contract ConvexDepositToken is AltheaOwnable {
         return amounts[0];
     }
 
-    function claimableReward(
-        address account
-    ) external view returns (uint256 prismaAmount, uint256 crvAmount, uint256 cvxAmount) {
+    function claimableReward(address account)
+        external
+        view
+        returns (uint256 prismaAmount, uint256 crvAmount, uint256 cvxAmount)
+    {
         uint256 updated = periodFinish;
         if (updated > block.timestamp) updated = block.timestamp;
         uint256 duration = updated - lastUpdate;
@@ -299,8 +300,9 @@ contract ConvexDepositToken is AltheaOwnable {
     }
 
     function _pushExcessEmissions(uint256 newAmount) internal {
-        if (vault.lockWeeks() > 0) storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
-        else {
+        if (vault.lockWeeks() > 0) {
+            storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
+        } else {
             uint256 excess = storedExcessEmissions + newAmount;
             storedExcessEmissions = 0;
             vault.transferAllocatedTokens(address(this), address(this), excess);

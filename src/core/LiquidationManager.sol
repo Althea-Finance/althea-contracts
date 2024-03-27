@@ -12,30 +12,30 @@ import "../dependencies/PrismaMath.sol";
 import "../dependencies/AltheaBase.sol";
 
 /**
-    @title Prisma Liquidation Manager
-    @notice Based on Liquity's `TroveManager`
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
-
-            This contract has a 1:n relationship with `TroveManager`, handling liquidations
-            for every active collateral within the system.
-
-            Anyone can call to liquidate an eligible trove at any time. There is no requirement
-            that liquidations happen in order according to trove ICRs. There are three ways that
-            a liquidation can occur:
-
-            1. ICR <= 100
-               The trove's entire debt and collateral is redistributed between remaining active troves.
-
-            2. 100 < ICR < MCR
-               The trove is liquidated using stability pool deposits. The collateral is distributed
-               amongst stability pool depositors. If the stability pool's balance is insufficient to
-               completely repay the trove, the remaining debt and collateral is redistributed between
-               the remaining active troves.
-
-            3. MCR <= ICR < TCR && TCR < CCR
-               The trove is liquidated using stability pool deposits. Collateral equal to MCR of
-               the value of the debt is distributed between stability pool depositors. The remaining
-               collateral is left claimable by the trove owner.
+ * @title Prisma Liquidation Manager
+ *     @notice Based on Liquity's `TroveManager`
+ *             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
+ *
+ *             This contract has a 1:n relationship with `TroveManager`, handling liquidations
+ *             for every active collateral within the system.
+ *
+ *             Anyone can call to liquidate an eligible trove at any time. There is no requirement
+ *             that liquidations happen in order according to trove ICRs. There are three ways that
+ *             a liquidation can occur:
+ *
+ *             1. ICR <= 100
+ *                The trove's entire debt and collateral is redistributed between remaining active troves.
+ *
+ *             2. 100 < ICR < MCR
+ *                The trove is liquidated using stability pool deposits. The collateral is distributed
+ *                amongst stability pool depositors. If the stability pool's balance is insufficient to
+ *                completely repay the trove, the remaining debt and collateral is redistributed between
+ *                the remaining active troves.
+ *
+ *             3. MCR <= ICR < TCR && TCR < CCR
+ *                The trove is liquidated using stability pool deposits. Collateral equal to MCR of
+ *                the value of the debt is distributed between stability pool depositors. The remaining
+ *                collateral is left claimable by the trove owner.
  */
 contract LiquidationManager is AltheaOwnable, AltheaBase {
     IStabilityPool public immutable stabilityPool;
@@ -84,10 +84,7 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     event Liquidation(
-        uint256 _liquidatedDebt,
-        uint256 _liquidatedColl,
-        uint256 _collGasCompensation,
-        uint256 _debtGasCompensation
+        uint256 _liquidatedDebt, uint256 _liquidatedColl, uint256 _collGasCompensation, uint256 _debtGasCompensation
     );
 
     enum TroveManagerOperation {
@@ -103,7 +100,7 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         IBorrowerOperations _borrowerOperations,
         address _factory,
         uint256 _gasCompensation
-    )  AltheaOwnable(_altheaCore) AltheaBase(_gasCompensation) {
+    ) AltheaOwnable(_altheaCore) AltheaBase(_gasCompensation) {
         stabilityPool = _stabilityPoolAddress;
         borrowerOperations = _borrowerOperations;
         factory = _factory;
@@ -123,9 +120,9 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     // --- Trove Liquidation functions ---
 
     /**
-        @notice Liquidate a single trove
-        @dev Reverts if the trove is not active, or cannot be liquidated
-        @param borrower Borrower address to liquidate
+     * @notice Liquidate a single trove
+     *     @dev Reverts if the trove is not active, or cannot be liquidated
+     *     @param borrower Borrower address to liquidate
      */
     function liquidate(ITroveManager troveManager, address borrower) external {
         require(troveManager.getTroveStatus(borrower) == 1, "TroveManager: Trove does not exist or is closed");
@@ -136,11 +133,11 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @notice Liquidate a sequence of troves
-        @dev Iterates through troves starting with the lowest ICR
-        @param maxTrovesToLiquidate The maximum number of troves to liquidate
-        @param maxICR Maximum ICR to liquidate. Should be set to MCR if the system
-                      is not in recovery mode, to minimize gas costs for this call.
+     * @notice Liquidate a sequence of troves
+     *     @dev Iterates through troves starting with the lowest ICR
+     *     @param maxTrovesToLiquidate The maximum number of troves to liquidate
+     *     @param maxICR Maximum ICR to liquidate. Should be set to MCR if the system
+     *                   is not in recovery mode, to minimize gas costs for this call.
      */
     function liquidateTroves(ITroveManager troveManager, uint256 maxTrovesToLiquidate, uint256 maxICR) external {
         require(_enabledTroveManagers[troveManager], "TroveManager not approved");
@@ -159,11 +156,11 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         troveManagerValues.price = troveManager.fetchPrice();
         troveManagerValues.sunsetting = troveManager.sunsetting();
         troveManagerValues.MCR = troveManager.MCR();
-        uint debtInStabPool = stabilityPoolCached.getTotalDebtTokenDeposits();
+        uint256 debtInStabPool = stabilityPoolCached.getTotalDebtTokenDeposits();
 
         while (trovesRemaining > 0 && troveCount > 1) {
             address account = sortedTrovesCached.getLast();
-            uint ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
+            uint256 ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
             if (ICR > maxICR) {
                 // set to 0 to ensure the next if block evaluates false
                 trovesRemaining = 0;
@@ -173,28 +170,26 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
                 singleLiquidation = _liquidateWithoutSP(troveManager, account);
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
             } else if (ICR < troveManagerValues.MCR) {
-                singleLiquidation = _liquidateNormalMode(
-                    troveManager,
-                    account,
-                    debtInStabPool,
-                    troveManagerValues.sunsetting
-                );
+                singleLiquidation =
+                    _liquidateNormalMode(troveManager, account, debtInStabPool, troveManagerValues.sunsetting);
                 debtInStabPool -= singleLiquidation.debtToOffset;
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
-            } else break; // break if the loop reaches a Trove with ICR >= MCR
+            } else {
+                break;
+            } // break if the loop reaches a Trove with ICR >= MCR
             unchecked {
                 --trovesRemaining;
                 --troveCount;
             }
         }
         if (trovesRemaining > 0 && !troveManagerValues.sunsetting && troveCount > 1) {
-            (uint entireSystemColl, uint entireSystemDebt) = borrowerOperations.getGlobalSystemBalances();
+            (uint256 entireSystemColl, uint256 entireSystemDebt) = borrowerOperations.getGlobalSystemBalances();
             entireSystemColl -= totals.totalCollToSendToSP * troveManagerValues.price;
             entireSystemDebt -= totals.totalDebtToOffset;
             address nextAccount = sortedTrovesCached.getLast();
             ITroveManager _troveManager = troveManager; //stack too deep workaround
             while (trovesRemaining > 0 && troveCount > 1) {
-                uint ICR = troveManager.getCurrentICR(nextAccount, troveManagerValues.price);
+                uint256 ICR = troveManager.getCurrentICR(nextAccount, troveManagerValues.price);
                 if (ICR > maxICR) break;
                 unchecked {
                     --trovesRemaining;
@@ -206,17 +201,12 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
                 if (TCR >= CCR || ICR >= TCR) break;
 
                 singleLiquidation = _tryLiquidateWithCap(
-                    _troveManager,
-                    account,
-                    debtInStabPool,
-                    troveManagerValues.MCR,
-                    troveManagerValues.price
+                    _troveManager, account, debtInStabPool, troveManagerValues.MCR, troveManagerValues.price
                 );
                 if (singleLiquidation.debtToOffset == 0) continue;
                 debtInStabPool -= singleLiquidation.debtToOffset;
                 entireSystemColl -=
-                    (singleLiquidation.collToSendToSP + singleLiquidation.collSurplus) *
-                    troveManagerValues.price;
+                    (singleLiquidation.collToSendToSP + singleLiquidation.collSurplus) * troveManagerValues.price;
                 entireSystemDebt -= singleLiquidation.debtToOffset;
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
                 unchecked {
@@ -229,14 +219,10 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         if (totals.totalDebtToOffset > 0 || totals.totalCollToSendToSP > 0) {
             // Move liquidated collateral and Debt to the appropriate pools
             stabilityPoolCached.offset(
-                troveManager.collateralToken(),
-                totals.totalDebtToOffset,
-                totals.totalCollToSendToSP
+                troveManager.collateralToken(), totals.totalDebtToOffset, totals.totalCollToSendToSP
             );
             troveManager.decreaseDebtAndSendCollateral(
-                address(stabilityPoolCached),
-                totals.totalDebtToOffset,
-                totals.totalCollToSendToSP
+                address(stabilityPoolCached), totals.totalDebtToOffset, totals.totalCollToSendToSP
             );
         }
         troveManager.finalizeLiquidation(
@@ -257,10 +243,10 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @notice Liquidate a custom list of troves
-        @dev Reverts if there is not a single trove that can be liquidated
-        @param _troveArray List of borrower addresses to liquidate. Troves that were already
-                           liquidated, or cannot be liquidated, are ignored.
+     * @notice Liquidate a custom list of troves
+     *     @dev Reverts if there is not a single trove that can be liquidated
+     *     @param _troveArray List of borrower addresses to liquidate. Troves that were already
+     *                        liquidated, or cannot be liquidated, are ignored.
      */
     /*
      * Attempt to liquidate a custom list of troves provided by the caller.
@@ -275,28 +261,24 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         TroveManagerValues memory troveManagerValues;
 
         IStabilityPool stabilityPoolCached = stabilityPool;
-        uint debtInStabPool = stabilityPoolCached.getTotalDebtTokenDeposits();
+        uint256 debtInStabPool = stabilityPoolCached.getTotalDebtTokenDeposits();
         troveManagerValues.price = troveManager.fetchPrice();
         troveManagerValues.sunsetting = troveManager.sunsetting();
         troveManagerValues.MCR = troveManager.MCR();
-        uint troveCount = troveManager.getTroveOwnersCount();
-        uint length = _troveArray.length;
-        uint troveIter;
+        uint256 troveCount = troveManager.getTroveOwnersCount();
+        uint256 length = _troveArray.length;
+        uint256 troveIter;
         while (troveIter < length && troveCount > 1) {
             // first iteration round, when all liquidated troves have ICR < MCR we do not need to track TCR
             address account = _troveArray[troveIter];
 
             // closed / non-existent troves return an ICR of type(uint).max and are ignored
-            uint ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
+            uint256 ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
             if (ICR <= _100pct) {
                 singleLiquidation = _liquidateWithoutSP(troveManager, account);
             } else if (ICR < troveManagerValues.MCR) {
-                singleLiquidation = _liquidateNormalMode(
-                    troveManager,
-                    account,
-                    debtInStabPool,
-                    troveManagerValues.sunsetting
-                );
+                singleLiquidation =
+                    _liquidateNormalMode(troveManager, account, debtInStabPool, troveManagerValues.sunsetting);
                 debtInStabPool -= singleLiquidation.debtToOffset;
             } else {
                 // As soon as we find a trove with ICR >= MCR we need to start tracking the global TCR with the next loop
@@ -316,37 +298,28 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
             entireSystemDebt -= totals.totalDebtToOffset;
             while (troveIter < length && troveCount > 1) {
                 address account = _troveArray[troveIter];
-                uint ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
+                uint256 ICR = troveManager.getCurrentICR(account, troveManagerValues.price);
                 unchecked {
                     ++troveIter;
                 }
                 if (ICR <= _100pct) {
                     singleLiquidation = _liquidateWithoutSP(troveManager, account);
                 } else if (ICR < troveManagerValues.MCR) {
-                    singleLiquidation = _liquidateNormalMode(
-                        troveManager,
-                        account,
-                        debtInStabPool,
-                        troveManagerValues.sunsetting
-                    );
+                    singleLiquidation =
+                        _liquidateNormalMode(troveManager, account, debtInStabPool, troveManagerValues.sunsetting);
                 } else {
                     if (troveManagerValues.sunsetting) continue;
                     uint256 TCR = PrismaMath._computeCR(entireSystemColl, entireSystemDebt);
                     if (TCR >= CCR || ICR >= TCR) continue;
                     singleLiquidation = _tryLiquidateWithCap(
-                        troveManager,
-                        account,
-                        debtInStabPool,
-                        troveManagerValues.MCR,
-                        troveManagerValues.price
+                        troveManager, account, debtInStabPool, troveManagerValues.MCR, troveManagerValues.price
                     );
                     if (singleLiquidation.debtToOffset == 0) continue;
                 }
 
                 debtInStabPool -= singleLiquidation.debtToOffset;
                 entireSystemColl -=
-                    (singleLiquidation.collToSendToSP + singleLiquidation.collSurplus) *
-                    troveManagerValues.price;
+                    (singleLiquidation.collToSendToSP + singleLiquidation.collSurplus) * troveManagerValues.price;
                 entireSystemDebt -= singleLiquidation.debtToOffset;
                 _applyLiquidationValuesToTotals(totals, singleLiquidation);
                 unchecked {
@@ -360,14 +333,10 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         if (totals.totalDebtToOffset > 0 || totals.totalCollToSendToSP > 0) {
             // Move liquidated collateral and Debt to the appropriate pools
             stabilityPoolCached.offset(
-                troveManager.collateralToken(),
-                totals.totalDebtToOffset,
-                totals.totalCollToSendToSP
+                troveManager.collateralToken(), totals.totalDebtToOffset, totals.totalCollToSendToSP
             );
             troveManager.decreaseDebtAndSendCollateral(
-                address(stabilityPoolCached),
-                totals.totalDebtToOffset,
-                totals.totalCollToSendToSP
+                address(stabilityPoolCached), totals.totalDebtToOffset, totals.totalCollToSendToSP
             );
         }
         troveManager.finalizeLiquidation(
@@ -388,9 +357,9 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @dev Perform a "normal" liquidation, where 100% < ICR < MCR. The trove
-             is liquidated as much as possible using the stability pool. Any
-             remaining debt and collateral are redistributed between active troves.
+     * @dev Perform a "normal" liquidation, where 100% < ICR < MCR. The trove
+     *          is liquidated as much as possible using the stability pool. Any
+     *          remaining debt and collateral are redistributed between active troves.
      */
     function _liquidateNormalMode(
         ITroveManager troveManager,
@@ -398,15 +367,11 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         uint256 _debtInStabPool,
         bool sunsetting
     ) internal returns (LiquidationValues memory singleLiquidation) {
-        uint pendingDebtReward;
-        uint pendingCollReward;
+        uint256 pendingDebtReward;
+        uint256 pendingCollReward;
 
-        (
-            singleLiquidation.entireTroveDebt,
-            singleLiquidation.entireTroveColl,
-            pendingDebtReward,
-            pendingCollReward
-        ) = troveManager.getEntireDebtAndColl(_borrower);
+        (singleLiquidation.entireTroveDebt, singleLiquidation.entireTroveColl, pendingDebtReward, pendingCollReward) =
+            troveManager.getEntireDebtAndColl(_borrower);
 
         troveManager.movePendingTroveRewardsToActiveBalances(pendingDebtReward, pendingCollReward);
 
@@ -420,10 +385,7 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
             singleLiquidation.debtToRedistribute,
             singleLiquidation.collToRedistribute
         ) = _getOffsetAndRedistributionVals(
-            singleLiquidation.entireTroveDebt,
-            collToLiquidate,
-            _debtInStabPool,
-            sunsetting
+            singleLiquidation.entireTroveDebt, collToLiquidate, _debtInStabPool, sunsetting
         );
 
         troveManager.closeTroveByLiquidation(_borrower);
@@ -432,11 +394,11 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @dev Attempt to liquidate a single trove in recovery mode.
-             If MCR <= ICR < current TCR (accounting for the preceding liquidations in the current sequence)
-             and there is Debt in the Stability Pool, only offset, with no redistribution,
-             but at a capped rate of 1.1 and only if the whole debt can be liquidated.
-             The remainder due to the capped rate will be claimable as collateral surplus.
+     * @dev Attempt to liquidate a single trove in recovery mode.
+     *          If MCR <= ICR < current TCR (accounting for the preceding liquidations in the current sequence)
+     *          and there is Debt in the Stability Pool, only offset, with no redistribution,
+     *          but at a capped rate of 1.1 and only if the whole debt can be liquidated.
+     *          The remainder due to the capped rate will be claimable as collateral surplus.
      */
     function _tryLiquidateWithCap(
         ITroveManager troveManager,
@@ -445,14 +407,13 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         uint256 _MCR,
         uint256 _price
     ) internal returns (LiquidationValues memory singleLiquidation) {
-        uint entireTroveDebt;
-        uint entireTroveColl;
-        uint pendingDebtReward;
-        uint pendingCollReward;
+        uint256 entireTroveDebt;
+        uint256 entireTroveColl;
+        uint256 pendingDebtReward;
+        uint256 pendingCollReward;
 
-        (entireTroveDebt, entireTroveColl, pendingDebtReward, pendingCollReward) = troveManager.getEntireDebtAndColl(
-            _borrower
-        );
+        (entireTroveDebt, entireTroveColl, pendingDebtReward, pendingCollReward) =
+            troveManager.getEntireDebtAndColl(_borrower);
 
         if (entireTroveDebt > _debtInStabPool) {
             // do not liquidate if the entire trove cannot be liquidated via SP
@@ -483,22 +444,18 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @dev Liquidate a trove without using the stability pool. All debt and collateral
-             are distributed porportionally between the remaining active troves.
+     * @dev Liquidate a trove without using the stability pool. All debt and collateral
+     *          are distributed porportionally between the remaining active troves.
      */
-    function _liquidateWithoutSP(
-        ITroveManager troveManager,
-        address _borrower
-    ) internal returns (LiquidationValues memory singleLiquidation) {
-        uint pendingDebtReward;
-        uint pendingCollReward;
+    function _liquidateWithoutSP(ITroveManager troveManager, address _borrower)
+        internal
+        returns (LiquidationValues memory singleLiquidation)
+    {
+        uint256 pendingDebtReward;
+        uint256 pendingCollReward;
 
-        (
-            singleLiquidation.entireTroveDebt,
-            singleLiquidation.entireTroveColl,
-            pendingDebtReward,
-            pendingCollReward
-        ) = troveManager.getEntireDebtAndColl(_borrower);
+        (singleLiquidation.entireTroveDebt, singleLiquidation.entireTroveColl, pendingDebtReward, pendingCollReward) =
+            troveManager.getEntireDebtAndColl(_borrower);
 
         singleLiquidation.collGasCompensation = _getCollGasCompensation(singleLiquidation.entireTroveColl);
         singleLiquidation.debtGasCompensation = DEBT_GAS_COMPENSATION;
@@ -507,9 +464,7 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
         singleLiquidation.debtToOffset = 0;
         singleLiquidation.collToSendToSP = 0;
         singleLiquidation.debtToRedistribute = singleLiquidation.entireTroveDebt;
-        singleLiquidation.collToRedistribute =
-            singleLiquidation.entireTroveColl -
-            singleLiquidation.collGasCompensation;
+        singleLiquidation.collToRedistribute = singleLiquidation.entireTroveColl - singleLiquidation.collGasCompensation;
 
         troveManager.closeTroveByLiquidation(_borrower);
 
@@ -519,15 +474,10 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     /* In a full liquidation, returns the values for a trove's coll and debt to be offset, and coll and debt to be
      * redistributed to active troves.
      */
-    function _getOffsetAndRedistributionVals(
-        uint256 _debt,
-        uint256 _coll,
-        uint256 _debtInStabPool,
-        bool sunsetting
-    )
-    internal
-    pure
-    returns (uint256 debtToOffset, uint256 collToSendToSP, uint256 debtToRedistribute, uint256 collToRedistribute)
+    function _getOffsetAndRedistributionVals(uint256 _debt, uint256 _coll, uint256 _debtInStabPool, bool sunsetting)
+        internal
+        pure
+        returns (uint256 debtToOffset, uint256 collToSendToSP, uint256 debtToRedistribute, uint256 collToRedistribute)
     {
         if (_debtInStabPool > 0 && !sunsetting) {
             /*
@@ -553,9 +503,9 @@ contract LiquidationManager is AltheaOwnable, AltheaBase {
     }
 
     /**
-        @dev Adds values from `singleLiquidation` to `totals`
-             Calling this function mutates `totals`, the change is done in-place
-             to avoid needless expansion of memory
+     * @dev Adds values from `singleLiquidation` to `totals`
+     *          Calling this function mutates `totals`, the change is done in-place
+     *          to avoid needless expansion of memory
      */
     function _applyLiquidationValuesToTotals(
         LiquidationTotals memory totals,

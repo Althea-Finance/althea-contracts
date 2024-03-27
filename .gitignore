@@ -21,3 +21,7 @@ lib/
 *.idea
 
 .prettierrc
+
+*.idea
+
+.vscode/

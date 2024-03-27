@@ -15,8 +15,8 @@ interface ICurveDepositToken {
 }
 
 /**
-    @notice Prisma Curve Factory
-    @title Deploys clones of `CurveDepositToken` as directed by the Prisma DAO
+ * @notice Prisma Curve Factory
+ *     @title Deploys clones of `CurveDepositToken` as directed by the Prisma DAO
  */
 contract CurveFactory is AltheaOwnable {
     using Clones for address;
@@ -39,7 +39,7 @@ contract CurveFactory is AltheaOwnable {
         depositTokenImpl = _depositTokenImpl;
         emit ImplementationSet(_depositTokenImpl);
 
-        for (uint i = 0; i < _existingDeployments.length; i++) {
+        for (uint256 i = 0; i < _existingDeployments.length; i++) {
             address depositToken = _existingDeployments[i];
             address lpToken = ICurveDepositToken(depositToken).lpToken();
             address gauge = ICurveDepositToken(depositToken).gauge();
@@ -48,12 +48,12 @@ contract CurveFactory is AltheaOwnable {
         }
     }
 
-/**
-@dev After calling this function, the owner should also call `Vault.registerReceiver`
-             to enable PRISMA emissions on the newly deployed `CurveDepositToken`
+    /**
+     * @dev After calling this function, the owner should also call `Vault.registerReceiver`
+     *          to enable PRISMA emissions on the newly deployed `CurveDepositToken`
      */
     function deployNewInstance(address gauge) external onlyOwner {
-// no duplicate deployments because deposits and rewards must route via `CurveProxy`
+        // no duplicate deployments because deposits and rewards must route via `CurveProxy`
         require(getDepositToken[gauge] == address(0), "Deposit token already deployed");
         address depositToken = depositTokenImpl.cloneDeterministic(bytes32(bytes20(gauge)));
 

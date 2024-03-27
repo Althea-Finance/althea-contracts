@@ -10,11 +10,11 @@ import "../../interfaces/IGaugeController.sol";
 import "../../dependencies/AltheaOwnable.sol";
 
 /**
-    @title Prisma Curve Deposit Wrapper
-    @notice Standard ERC20 interface around a deposit of a Curve LP token into it's
-            associated gauge. Tokens are minted by depositing Curve LP tokens, and
-            burned to receive the LP tokens back. Holders may claim PRISMA emissions
-            on top of the earned CRV.
+ * @title Prisma Curve Deposit Wrapper
+ *     @notice Standard ERC20 interface around a deposit of a Curve LP token into it's
+ *             associated gauge. Tokens are minted by depositing Curve LP tokens, and
+ *             burned to receive the LP tokens back. Holders may claim PRISMA emissions
+ *             on top of the earned CRV.
  */
 contract CurveDepositToken is AltheaOwnable {
     IERC20 public immutable PRISMA;
@@ -251,8 +251,9 @@ contract CurveDepositToken is AltheaOwnable {
     }
 
     function _pushExcessEmissions(uint256 newAmount) internal {
-        if (vault.lockWeeks() > 0) storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
-        else {
+        if (vault.lockWeeks() > 0) {
+            storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
+        } else {
             uint256 excess = storedExcessEmissions + newAmount;
             storedExcessEmissions = 0;
             vault.transferAllocatedTokens(address(this), address(this), excess);

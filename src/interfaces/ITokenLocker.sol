@@ -50,10 +50,10 @@ interface ITokenLocker {
 
     function PRISMA_CORE() external view returns (address);
 
-    function getAccountActiveLocks(
-        address account,
-        uint256 minWeeks
-    ) external view returns (LockData[] memory lockData, uint256 frozenAmount);
+    function getAccountActiveLocks(address account, uint256 minWeeks)
+        external
+        view
+        returns (LockData[] memory lockData, uint256 frozenAmount);
 
     function getAccountBalances(address account) external view returns (uint256 locked, uint256 unlocked);
 
@@ -67,10 +67,10 @@ interface ITokenLocker {
 
     function getWeek() external view returns (uint256 week);
 
-    function getWithdrawWithPenaltyAmounts(
-        address account,
-        uint256 amountToWithdraw
-    ) external view returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid);
+    function getWithdrawWithPenaltyAmounts(address account, uint256 amountToWithdraw)
+        external
+        view
+        returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid);
 
     function guardian() external view returns (address);
 
