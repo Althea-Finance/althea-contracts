@@ -14,12 +14,9 @@ interface IFeeDistributor {
 }
 
 interface ICryptoSwap {
-    function add_liquidity(
-        uint256[2] memory amounts,
-        uint256 min_mint_amount,
-        bool use_eth,
-        address receiver
-    ) external returns (uint256);
+    function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount, bool use_eth, address receiver)
+        external
+        returns (uint256);
 
     function price_oracle() external view returns (uint256);
 
@@ -102,7 +99,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
     // if no POL is added, only half of this amount is given
     uint80 public callerIncentive;
 
-// collateral -> is for sale via `swapCollateralForDebt`?
+    // collateral -> is for sale via `swapCollateralForDebt`?
     mapping(address collateral => bool isForSale) public isSellingCollateral;
 
     event WeeklyDebtParamsSet(uint256 maxWeeklyDebtAmount, uint256 maxWeeklyDebtPct);
@@ -112,11 +109,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
     event IsSellingCollateralSet(address[] collaterals, bool isSelling);
 
     event CollateralSold(
-        address indexed buyer,
-        address indexed collateral,
-        uint256 price,
-        uint256 amountSold,
-        uint256 amountReceived
+        address indexed buyer, address indexed collateral, uint256 price, uint256 amountSold, uint256 amountReceived
     );
 
     event LiquidityAdded(uint256 priceScale, uint256 debtAmount, uint256 prismaAmount, uint256 lpAmountReceived);
@@ -199,14 +192,14 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         uint256 length = collaterals.length;
         if (isSelling) {
             IPriceFeed feed = IPriceFeed(ALTHEA_CORE.priceFeed());
-            for (uint i = 0; i < length; i++) {
+            for (uint256 i = 0; i < length; i++) {
                 address collateral = collaterals[i];
-// fetch price as validation that collateral can be sold
+                // fetch price as validation that collateral can be sold
                 feed.fetchPrice(collateral);
                 isSellingCollateral[collateral] = true;
             }
         } else {
-            for (uint i = 0; i < length; i++) {
+            for (uint256 i = 0; i < length; i++) {
                 isSellingCollateral[collaterals[i]] = false;
             }
         }
@@ -214,13 +207,13 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         emit IsSellingCollateralSet(collaterals, isSelling);
     }
 
-/**
-@notice Swap collateral token for debt
-        @dev Collateral is sold at the oracle price without discount, assuming a
-             debt token value of $1. Swaps become profitable for the caller when
-             the debt token price is under peg. As fees from redemptions are
-             also generated only when the debt price is under peg, it is expected
-             that redeemers will also call this function in the same action.
+    /**
+     * @notice Swap collateral token for debt
+     *     @dev Collateral is sold at the oracle price without discount, assuming a
+     *          debt token value of $1. Swaps become profitable for the caller when
+     *          the debt token price is under peg. As fees from redemptions are
+     *          also generated only when the debt price is under peg, it is expected
+     *          that redeemers will also call this function in the same action.
      */
     function swapDebtForColl(address collateral, uint256 debtAmount) external returns (uint256) {
         require(isSellingCollateral[collateral], "Collateral sale disabled");
@@ -234,28 +227,28 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         return collAmount;
     }
 
-/**
-@notice Get the amount received when swapping collateral for debt
-        @dev Intended to be called as a view method
+    /**
+     * @notice Get the amount received when swapping collateral for debt
+     *     @dev Intended to be called as a view method
      */
-    function getSwapAmountReceived(
-        address collateral,
-        uint256 debtAmount
-    ) public returns (uint256 collAmount, uint256 price) {
+    function getSwapAmountReceived(address collateral, uint256 debtAmount)
+        public
+        returns (uint256 collAmount, uint256 price)
+    {
         IPriceFeed feed = IPriceFeed(ALTHEA_CORE.priceFeed());
         price = feed.fetchPrice(collateral);
         collAmount = (debtAmount * 1e18) / price;
         return (collAmount, price);
     }
 
-/**
-@notice Update the local storage array of trove managers
-        @dev Should be called whenever a trove manager is added
+    /**
+     * @notice Update the local storage array of trove managers
+     *     @dev Should be called whenever a trove manager is added
      */
     function syncTroveManagers() public returns (bool) {
         uint256 newLength = factory.troveManagerCount();
 
-        for (uint i = troveManagers.length; i < newLength; i++) {
+        for (uint256 i = troveManagers.length; i < newLength; i++) {
             ITroveManager troveManager = ITroveManager(factory.troveManagers(i));
             troveManagers.push(troveManager);
         }
@@ -264,13 +257,13 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         return true;
     }
 
-/**
-@notice Collect accrued interest from all trove managers
-        @dev Callable by anyone at any time. Also called within `processWeeklyFees`.
+    /**
+     * @notice Collect accrued interest from all trove managers
+     *     @dev Callable by anyone at any time. Also called within `processWeeklyFees`.
      */
     function collectInterests() public returns (bool) {
         uint256 length = troveManagers.length;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             ITroveManager tm = troveManagers[i];
             if (tm.interestPayable() > 0) tm.collectInterests();
         }
@@ -279,19 +272,19 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         return true;
     }
 
-/**
-@notice Process weekly fees
-        @dev Callable once per week. The caller is incentivized with a fixed
-             amount of debt tokens.
+    /**
+     * @notice Process weekly fees
+     *     @dev Callable once per week. The caller is incentivized with a fixed
+     *          amount of debt tokens.
      */
     function processWeeklyFees() external returns (bool) {
         require(getWeek() > updatedWeek, "Already called this week");
         updatedWeek = uint16(getWeek());
 
-// collect accrued interest this week
+        // collect accrued interest this week
         collectInterests();
 
-// calculate amount of debtToken to distribute
+        // calculate amount of debtToken to distribute
         address receiver = ALTHEA_CORE.feeReceiver();
         uint256 amount = debtToken.balanceOf(receiver);
         amount = (amount * maxWeeklyDebtPct) / MAX_PCT;
@@ -299,11 +292,11 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         if (amount > maxDebt) amount = maxDebt;
         debtToken.transferFrom(receiver, address(this), amount);
 
-// deduct `callerIncentive` from amount
+        // deduct `callerIncentive` from amount
         uint256 incentive = callerIncentive;
         amount -= incentive;
 
-// add liquidity to `curveLpPool`
+        // add liquidity to `curveLpPool`
         bool addedLiquidity;
         uint256 polPct = weeklyDebtPOLPct;
         if (polPct > 0) {
@@ -324,7 +317,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
             }
         }
 
-// transfer `callerIncentive` to caller - thank you for your service!
+        // transfer `callerIncentive` to caller - thank you for your service!
         if (incentive != 0) {
             if (!addedLiquidity) {
                 incentive /= 2;
@@ -334,7 +327,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
             emit CallerIncentivePaid(msg.sender, incentive);
         }
 
-// deposit to `feeDistributor`
+        // deposit to `feeDistributor`
         if (amount > 0) {
             feeDistributor.depositFeeToken(address(debtToken), amount);
             emit FeeTokenDeposited(amount);
@@ -343,15 +336,15 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         return true;
     }
 
-/**
-@notice Add any pending liquidity
-        @dev Reverts if the liquidity checker disallows
+    /**
+     * @notice Add any pending liquidity
+     *     @dev Reverts if the liquidity checker disallows
      */
     function addPendingLiquidity() external returns (bool) {
         uint256 amount = pendingPOLDebtAmount;
         if (amount > 0) {
             require(addLiquidityChecker.canAddLiquidity(msg.sender, amount), "Blocked by liquidityChecker");
-            uint added = _addLiquidity(amount, ALTHEA_CORE.feeReceiver());
+            uint256 added = _addLiquidity(amount, ALTHEA_CORE.feeReceiver());
             pendingPOLDebtAmount = uint88(amount - added);
             emit PendingPOLDebtUpdated(amount - added);
         }
@@ -362,7 +355,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         uint256 amount = token.balanceOf(address(this));
         if (amount > 0) {
             if (token == debtToken) {
-// if recovering `debtToken`, need to zero pending POL amount or things break
+                // if recovering `debtToken`, need to zero pending POL amount or things break
                 pendingPOLDebtAmount = 0;
                 emit PendingPOLDebtUpdated(0);
             }
@@ -377,7 +370,7 @@ contract FeeConverter is AltheaOwnable, SystemStart {
         uint256 prismaAmount = (debtAmount * 1e18) / priceScale;
         uint256 prismaAvailable = theaToken.balanceOf(receiver);
 
-// if insufficient THEA is available, adjust the amounts
+        // if insufficient THEA is available, adjust the amounts
         if (prismaAvailable < prismaAmount) {
             if (prismaAvailable < 1e18) return 0;
             prismaAmount = prismaAvailable;

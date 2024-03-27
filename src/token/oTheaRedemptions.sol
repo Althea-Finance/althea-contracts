@@ -7,15 +7,14 @@ import {AltheaOwnable} from "../dependencies/AltheaOwnable.sol";
 import "../interfaces/IERC2612.sol";
 
 /**
-    @title oTHEA Redemptions manager
-    @notice Manages the redemption of oTHEA tokens for THEA tokens, handling also the payment in native METIS
+ * @title oTHEA Redemptions manager
+ *     @notice Manages the redemption of oTHEA tokens for THEA tokens, handling also the payment in native METIS
  */
 
 // todo add the necessary ihnterfaces to the /interfaces folder
 
 interface ITHEA {
     function mintTo(address to, uint256 amount) external;
-
 }
 
 interface IoTHEA is IERC20 {
@@ -24,11 +23,9 @@ interface IoTHEA is IERC20 {
     function mintToVault(uint256 amount) external;
 
     function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
-
 }
 
 contract oTheaRedemptions is AltheaOwnable {
-
     ITHEA public immutable THEA;
     IoTHEA public immutable oTHEA;
 
@@ -84,7 +81,9 @@ contract oTheaRedemptions is AltheaOwnable {
         // We don't want redemptions to fail
         // ok: no need to protect against gas griefing with large memory data, as it is the sender itself the one who pays for it, and it doesn't DOS the system
         (bool success,) = payable(msg.sender).call{value: remainingMetis}("");
-        {success;} // silence the annoying warning from above
+        {
+            success;
+        } // silence the annoying warning from above
     }
 
     ///////////////////////////  OnlyOwner SETTERS  /////////////////////////////
@@ -122,7 +121,7 @@ contract oTheaRedemptions is AltheaOwnable {
         // note that THEA:oTHEA redemptions are 1:1
         // units : THEA * [USD/THEA] / [USD/METIS] = [METIS]
         // @audit missing to adjust for the PRECISSION factor from the oracle prices
-        amountInMetisValue = (theaAmount * usdPerThea) / usdPerMetis;  // this is rounded down
+        amountInMetisValue = (theaAmount * usdPerThea) / usdPerMetis; // this is rounded down
     }
 
     // discount will subject to change via dao proposal

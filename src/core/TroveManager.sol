@@ -16,16 +16,16 @@ import "../dependencies/PrismaMath.sol";
 import "../dependencies/AltheaOwnable.sol";
 
 /**
-    @title Althea Trove Manager
-    @notice Based on Liquity's `TroveManager`
-            https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
-
-            Prisma's implementation is modified so that multiple `TroveManager` and `SortedTroves`
-            contracts are deployed in tandem, with each pair managing troves of a single collateral
-            type.
-
-            Functionality related to liquidations has been moved to `LiquidationManager`. This was
-            necessary to avoid the restriction on deployed bytecode size.
+ * @title Althea Trove Manager
+ *     @notice Based on Liquity's `TroveManager`
+ *             https://github.com/liquity/dev/blob/main/packages/contracts/contracts/TroveManager.sol
+ *
+ *             Prisma's implementation is modified so that multiple `TroveManager` and `SortedTroves`
+ *             contracts are deployed in tandem, with each pair managing troves of a single collateral
+ *             type.
+ *
+ *             Functionality related to liquidations has been moved to `LiquidationManager`. This was
+ *             necessary to avoid the restriction on deployed bytecode size.
  */
 contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     using SafeERC20 for IERC20;
@@ -208,18 +208,11 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     event TroveUpdated(
-        address indexed _borrower,
-        uint256 _debt,
-        uint256 _coll,
-        uint256 _stake,
-        TroveManagerOperation _operation
+        address indexed _borrower, uint256 _debt, uint256 _coll, uint256 _stake, TroveManagerOperation _operation
     );
 
     event Redemption(
-        uint256 _attemptedDebtAmount,
-        uint256 _actualDebtAmount,
-        uint256 _collateralSent,
-        uint256 _collateralFee
+        uint256 _attemptedDebtAmount, uint256 _actualDebtAmount, uint256 _collateralSent, uint256 _collateralFee
     );
     event BaseRateUpdated(uint256 _baseRate);
     event LastFeeOpTimeUpdated(uint256 _lastFeeOpTime);
@@ -305,12 +298,12 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     /**
      * @notice Starts sunsetting a collateral
      *         During sunsetting only the following are possible:
-               1) Disable collateral handoff to SP
-               2) Greatly Increase interest rate to incentivize redemptions
-               3) Remove redemptions fees
-               4) Disable new loans
-        @dev IMPORTANT: When sunsetting a collateral altogether this function should be called on
-                        all TM linked to that collateral as well as `StabilityPool.startCollateralSunset`
+     *            1) Disable collateral handoff to SP
+     *            2) Greatly Increase interest rate to incentivize redemptions
+     *            3) Remove redemptions fees
+     *            4) Disable new loans
+     *     @dev IMPORTANT: When sunsetting a collateral altogether this function should be called on
+     *                     all TM linked to that collateral as well as `StabilityPool.startCollateralSunset`
      */
     function startSunset() external onlyOwner {
         sunsetting = true;
@@ -345,8 +338,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
             require(msg.sender == owner(), "Only owner");
         }
         require(
-            _minuteDecayFactor >= 977159968434245000 && // half-life of 30 minutes
-            _minuteDecayFactor <= 999931237762985000 // half-life of 1 week
+            _minuteDecayFactor >= 977159968434245000 // half-life of 30 minutes
+                && _minuteDecayFactor <= 999931237762985000 // half-life of 1 week
         );
         require(_redemptionFeeFloor <= _maxRedemptionFee && _maxRedemptionFee <= DECIMAL_PRECISION);
         require(_borrowingFeeFloor <= _maxBorrowingFee && _maxBorrowingFee <= DECIMAL_PRECISION);
@@ -417,8 +410,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     /**
-        @notice Get the current total collateral and debt amounts for a trove
-        @dev Also includes pending rewards from redistribution
+     * @notice Get the current total collateral and debt amounts for a trove
+     *     @dev Also includes pending rewards from redistribution
      */
     function getTroveCollAndDebt(address _borrower) public view returns (uint256 coll, uint256 debt) {
         (debt, coll,,) = getEntireDebtAndColl(_borrower);
@@ -426,12 +419,14 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     /**
-        @notice Get the total and pending collateral and debt amounts for a trove
-        @dev Used by the liquidation manager
+     * @notice Get the total and pending collateral and debt amounts for a trove
+     *     @dev Used by the liquidation manager
      */
-    function getEntireDebtAndColl(
-        address _borrower
-    ) public view returns (uint256 debt, uint256 coll, uint256 pendingDebtReward, uint256 pendingCollateralReward) {
+    function getEntireDebtAndColl(address _borrower)
+        public
+        view
+        returns (uint256 debt, uint256 coll, uint256 pendingDebtReward, uint256 pendingCollateralReward)
+    {
         Trove storage t = Troves[_borrower];
         debt = t.debt;
         coll = t.coll;
@@ -532,11 +527,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
      * then,
      * 2) increases the baseRate based on the amount redeemed, as a proportion of total supply
      */
-    function _updateBaseRateFromRedemption(
-        uint256 _collateralDrawn,
-        uint256 _price,
-        uint256 _totalDebtSupply
-    ) internal returns (uint256) {
+    function _updateBaseRateFromRedemption(uint256 _collateralDrawn, uint256 _price, uint256 _totalDebtSupply)
+        internal
+        returns (uint256)
+    {
         uint256 decayedBaseRate = _calcDecayedBaseRate();
 
         /* Convert the drawn collateral back to debt at face value rate (1 debt:1 USD), in order to get
@@ -565,8 +559,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     function _calcRedemptionRate(uint256 _baseRate) internal view returns (uint256) {
-        return
-            PrismaMath._min(
+        return PrismaMath._min(
             redemptionFeeFloor + _baseRate,
             maxRedemptionFee // cap at a maximum of 100%
         );
@@ -663,8 +656,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         RedemptionTotals memory totals;
 
         require(
-            _maxFeePercentage >= redemptionFeeFloor && _maxFeePercentage <= maxRedemptionFee,
-            "Max fee 0.5% to 100%"
+            _maxFeePercentage >= redemptionFeeFloor && _maxFeePercentage <= maxRedemptionFee, "Max fee 0.5% to 100%"
         );
         require(block.timestamp >= systemDeploymentTime + BOOTSTRAP_PERIOD, "BOOTSTRAP_PERIOD");
         totals.price = fetchPrice();
@@ -784,8 +776,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
                     ? _partialRedemptionHintNICR - newNICR
                     : newNICR - _partialRedemptionHintNICR;
                 if (
-                    icrError > 5e14 ||
-                    _getNetDebt(newDebt) < IBorrowerOperations(borrowerOperationsAddress).minNetDebt()
+                    icrError > 5e14
+                        || _getNetDebt(newDebt) < IBorrowerOperations(borrowerOperationsAddress).minNetDebt()
                 ) {
                     singleRedemption.cancelledPartial = true;
                     return singleRedemption;
@@ -826,9 +818,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         uint256 _MCR
     ) internal view returns (bool) {
         if (
-            _firstRedemptionHint == address(0) ||
-            !_sortedTroves.contains(_firstRedemptionHint) ||
-            getCurrentICR(_firstRedemptionHint, _price) < _MCR
+            _firstRedemptionHint == address(0) || !_sortedTroves.contains(_firstRedemptionHint)
+                || getCurrentICR(_firstRedemptionHint, _price) < _MCR
         ) {
             return false;
         }
@@ -1091,10 +1082,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     /**
-        @dev Only called from `closeTrove` because liquidating the final trove is blocked in
-             `LiquidationManager`. Many liquidation paths involve redistributing debt and
-             collateral to existing troves. If the collateral is being sunset, the final trove
-             must be closed by repaying the debt or via a redemption.
+     * @dev Only called from `closeTrove` because liquidating the final trove is blocked in
+     *          `LiquidationManager`. Many liquidation paths involve redistributing debt and
+     *          collateral to existing troves. If the collateral is being sunset, the final trove
+     *          must be closed by repaying the debt or via a redemption.
      */
     function _resetState() private {
         if (TroveOwners.length == 0) {
@@ -1432,8 +1423,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
             uint256 deltaT = block.timestamp - lastIndexUpdateCached;
             interestFactor = deltaT * currentInterest;
             currentInterestIndex =
-                currentInterestIndex +
-                Math.mulDiv(currentInterestIndex, interestFactor, INTEREST_PRECISION);
+                currentInterestIndex + Math.mulDiv(currentInterestIndex, interestFactor, INTEREST_PRECISION);
         }
     }
 

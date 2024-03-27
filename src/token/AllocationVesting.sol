@@ -29,9 +29,9 @@ contract AllocationVesting is DelegatedOps {
 
     struct AllocationSplit {
         address recipient;
-        uint24 points;  // max value = 16777215  // @audit make sure this cannot be exceeded
+        uint24 points; // max value = 16777215  // @audit make sure this cannot be exceeded
         uint8 numberOfWeeks; // total duration in weeks of the linear vesting period
-        uint8 weeksCliff;  // number of weeks before the linear vesting starts
+        uint8 weeksCliff; // number of weeks before the linear vesting starts
         uint8 tgePct; // in basis points of 10000
     }
 
@@ -80,9 +80,11 @@ contract AllocationVesting is DelegatedOps {
             if (points == 0) revert ZeroAllocation();
             if (numberOfWeeks == 0 && tgePct != 10000) revert ZeroNumberOfWeeks();
             if (weeksCliff > 0 && tgePct > 0) revert AllocationsMismatch();
-            if (allocations[recipient].numberOfWeeks > 0 || allocations[recipient].tgePct > 0) revert DuplicateAllocation();
+            if (allocations[recipient].numberOfWeeks > 0 || allocations[recipient].tgePct > 0) {
+                revert DuplicateAllocation();
+            }
             total += points;
-            allocations[recipient].points = uint24(points);  // @audit-issue unsafe downcasting. Should we include a sanity check here? or are we sure points cannot be higher than this?
+            allocations[recipient].points = uint24(points); // @audit-issue unsafe downcasting. Should we include a sanity check here? or are we sure points cannot be higher than this?
             allocations[recipient].numberOfWeeks = numberOfWeeks;
             allocations[recipient].weeksCliff = allocationSplits[i].weeksCliff;
             allocations[recipient].tgePct = allocationSplits[i].tgePct;
@@ -101,8 +103,14 @@ contract AllocationVesting is DelegatedOps {
      */
     function claim(address account) external callerOrDelegated(account) {
         AllocationState memory allocation = allocations[account];
-        _claim(account, allocation.points, allocation.claimed, allocation.numberOfWeeks, allocation.weeksCliff, allocation.tgePct);
-        
+        _claim(
+            account,
+            allocation.points,
+            allocation.claimed,
+            allocation.numberOfWeeks,
+            allocation.weeksCliff,
+            allocation.tgePct
+        );
     }
 
     // This function exists to avoid reloading the AllocationState struct in memory
@@ -123,7 +131,7 @@ contract AllocationVesting is DelegatedOps {
         vestingToken.mintToAllocationVesting(account, claimable);
 
         // We send to delegate for possible zaps
-//        vestingToken.transferFrom(vault, msg.sender, claimable);
+        //        vestingToken.transferFrom(vault, msg.sender, claimable);
     }
 
     /**
@@ -133,12 +141,14 @@ contract AllocationVesting is DelegatedOps {
      */
     function claimableNow(address account) external view returns (uint256 claimable) {
         AllocationState memory allocation = allocations[account];
-        claimable = _claimableAt(block.timestamp,
+        claimable = _claimableAt(
+            block.timestamp,
             allocation.points,
             allocation.claimed,
             allocation.numberOfWeeks,
             allocation.weeksCliff,
-            allocation.tgePct);
+            allocation.tgePct
+        );
     }
 
     function _claimableAt(
@@ -153,7 +163,11 @@ contract AllocationVesting is DelegatedOps {
         return totalVested > claimed ? totalVested - claimed : 0;
     }
 
-    function _vestedAt(uint256 when, uint256 points, uint256 numberOfWeeks, uint8 weeksCliff, uint8 tgePct) private view returns (uint256 vested) {
+    function _vestedAt(uint256 when, uint256 points, uint256 numberOfWeeks, uint8 weeksCliff, uint8 tgePct)
+        private
+        view
+        returns (uint256 vested)
+    {
         if (vestingStart == 0 || (numberOfWeeks == 0 && tgePct != 0)) return 0;
         if (when < vestingStart) return 0;
 

@@ -8,12 +8,12 @@ import "../interfaces/ITokenLocker.sol";
 import "../dependencies/AltheaOwnable.sol";
 
 /**
-    @title Thea Incentive Voting
-    @notice Users with THEA balances locked in `TokenLocker` may register their
-            lock weights in this contract, and use this weight to vote on where
-            new THEA emissions will be released in the following week.
-
-            Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
+ * @title Thea Incentive Voting
+ *     @notice Users with THEA balances locked in `TokenLocker` may register their
+ *             lock weights in this contract, and use this weight to vote on where
+ *             new THEA emissions will be released in the following week.
+ *
+ *             Conceptually, incentive voting functions similarly to Curve's gauge weight voting.
  */
 contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     uint256 public constant MAX_POINTS = 10000; // must be less than 2**16 or things will break
@@ -71,10 +71,7 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
 
     // emitted each time an account's lock weight is registered
     event AccountWeightRegistered(
-        address indexed account,
-        uint256 indexed week,
-        uint256 frozenBalance,
-        ITokenLocker.LockData[] registeredLockData
+        address indexed account, uint256 indexed week, uint256 frozenBalance, ITokenLocker.LockData[] registeredLockData
     );
     // emitted each time an account submits one or more new votes. only includes
     // vote points for the current call, for a complete list of an account's votes
@@ -84,7 +81,10 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     // emitted each time the votes for `account` are cleared
     event ClearedVotes(address indexed account, uint256 indexed week);
 
-    constructor(address _altheaCore, ITokenLocker _tokenLocker, address _vault) AltheaOwnable(_altheaCore)  SystemStart(_altheaCore) {
+    constructor(address _altheaCore, ITokenLocker _tokenLocker, address _vault)
+        AltheaOwnable(_altheaCore)
+        SystemStart(_altheaCore)
+    {
         tokenLocker = _tokenLocker;
         vault = _vault;
     }
@@ -95,16 +95,17 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         vault = _vaultAddress;
     }
 
-
     function setTokenLocker(address _locker) external onlyOwner {
         require(_locker != address(0), "Invalid address");
         require(address(tokenLocker) == address(0), "Already set");
         tokenLocker = ITokenLocker(_locker);
     }
 
-    function getAccountRegisteredLocks(
-        address account
-    ) external view returns (uint256 frozenWeight, LockData[] memory lockData) {
+    function getAccountRegisteredLocks(address account)
+        external
+        view
+        returns (uint256 frozenWeight, LockData[] memory lockData)
+    {
         return (accountLockData[account].frozenWeight, _getAccountLocks(account));
     }
 
@@ -229,12 +230,12 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Record the current lock weights for `account`, which can then
-                be used to vote.
-        @param minWeeks The minimum number of weeks-to-unlock to record weights
-                        for. The more active lock weeks that are registered, the
-                        more expensive it will be to vote. Accounts with many active
-                        locks may wish to skip smaller locks to reduce gas costs.
+     * @notice Record the current lock weights for `account`, which can then
+     *             be used to vote.
+     *     @param minWeeks The minimum number of weeks-to-unlock to record weights
+     *                     for. The more active lock weeks that are registered, the
+     *                     more expensive it will be to vote. Accounts with many active
+     *                     locks may wish to skip smaller locks to reduce gas costs.
      */
     function registerAccountWeight(address account, uint256 minWeeks) external callerOrDelegated(account) {
         AccountData storage accountData = accountLockData[account];
@@ -256,16 +257,15 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Record the current lock weights for `account` and submit new votes
-        @dev New votes replace any prior active votes
-        @param minWeeks Minimum number of weeks-to-unlock to record weights for
-        @param votes Array of tuples of (recipient id, vote points)
+     * @notice Record the current lock weights for `account` and submit new votes
+     *     @dev New votes replace any prior active votes
+     *     @param minWeeks Minimum number of weeks-to-unlock to record weights for
+     *     @param votes Array of tuples of (recipient id, vote points)
      */
-    function registerAccountWeightAndVote(
-        address account,
-        uint256 minWeeks,
-        Vote[] calldata votes
-    ) external callerOrDelegated(account) {
+    function registerAccountWeightAndVote(address account, uint256 minWeeks, Vote[] calldata votes)
+        external
+        callerOrDelegated(account)
+    {
         AccountData storage accountData = accountLockData[account];
 
         // if account has an active vote, clear the recorded vote
@@ -285,18 +285,18 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Vote for one or more recipients
-        @dev * Each voter can vote with up to `MAX_POINTS` points
-             * It is not required to use every point in a single call
-             * Votes carry over week-to-week and decay at the same rate as lock
-               weight
-             * The total weight is NOT distributed porportionally based on the
-               points used, an account must allocate all points in order to use
-               it's full vote weight
-        @param votes Array of tuples of (recipient id, vote points)
-        @param clearPrevious if true, the voter's current votes are cleared
-                             prior to recording the new votes. If false, new
-                             votes are added in addition to previous votes.
+     * @notice Vote for one or more recipients
+     *     @dev * Each voter can vote with up to `MAX_POINTS` points
+     * It is not required to use every point in a single call
+     * Votes carry over week-to-week and decay at the same rate as lock
+     *            weight
+     * The total weight is NOT distributed porportionally based on the
+     *            points used, an account must allocate all points in order to use
+     *            it's full vote weight
+     *     @param votes Array of tuples of (recipient id, vote points)
+     *     @param clearPrevious if true, the voter's current votes are cleared
+     *                          prior to recording the new votes. If false, new
+     *                          votes are added in addition to previous votes.
      */
     function vote(address account, Vote[] calldata votes, bool clearPrevious) external callerOrDelegated(account) {
         AccountData storage accountData = accountLockData[account];
@@ -321,7 +321,7 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Remove all active votes for the caller
+     * @notice Remove all active votes for the caller
      */
     function clearVote(address account) external callerOrDelegated(account) {
         AccountData storage accountData = accountLockData[account];
@@ -334,9 +334,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Clear registered weight and votes for `account`
-        @dev Called by `tokenLocker` when an account performs an early withdrawal
-             of locked tokens, to prevent a registered weight > actual lock weight
+     * @notice Clear registered weight and votes for `account`
+     *     @dev Called by `tokenLocker` when an account performs an early withdrawal
+     *          of locked tokens, to prevent a registered weight > actual lock weight
      */
     function clearRegisteredWeight(address account) external returns (bool) {
         require(
@@ -366,10 +366,10 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Set a frozen account weight as unfrozen
-        @dev Callable only by the token locker. This prevents users from
-             registering frozen locks, unfreezing, and having a larger registered
-             vote weight than their actual lock weight.
+     * @notice Set a frozen account weight as unfrozen
+     *     @dev Callable only by the token locker. This prevents users from
+     *          registering frozen locks, unfreezing, and having a larger registered
+     *          vote weight than their actual lock weight.
      */
     function unfreeze(address account, bool keepVote) external returns (bool) {
         require(msg.sender == address(tokenLocker));
@@ -389,7 +389,7 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
             accountData.week = uint16(week);
             accountData.frozenWeight = 0;
 
-            uint amount = frozenWeight / MAX_LOCK_WEEKS;
+            uint256 amount = frozenWeight / MAX_LOCK_WEEKS;
             accountData.lockedAmounts[0] = uint32(amount);
             accountData.weeksToUnlock[0] = uint8(MAX_LOCK_WEEKS);
             accountData.lockLength = 1;
@@ -413,8 +413,8 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @dev Get the current registered lock weights for `account`, as an array
-             of [(amount, weeks to unlock)] sorted by weeks-to-unlock descending.
+     * @dev Get the current registered lock weights for `account`, as an array
+     *          of [(amount, weeks to unlock)] sorted by weeks-to-unlock descending.
      */
     function _getAccountLocks(address account) internal view returns (LockData[] memory lockData) {
         AccountData storage accountData = accountLockData[account];
@@ -447,10 +447,7 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         AccountData storage accountData = accountLockData[account];
 
         // get updated account lock weights and store locally
-        (ITokenLocker.LockData[] memory lockData, uint256 frozen) = tokenLocker.getAccountActiveLocks(
-            account,
-            minWeeks
-        );
+        (ITokenLocker.LockData[] memory lockData, uint256 frozen) = tokenLocker.getAccountActiveLocks(account, minWeeks);
         uint256 length = lockData.length;
         if (frozen > 0) {
             frozen *= MAX_LOCK_WEEKS;
@@ -495,9 +492,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @dev Increases receiver and total weights, using a vote array and the
-             registered weights of `msg.sender`. Account related values are not
-             adjusted, they must be handled in the calling function.
+     * @dev Increases receiver and total weights, using a vote array and the
+     *          registered weights of `msg.sender`. Account related values are not
+     *          adjusted, they must be handled in the calling function.
      */
     function _addVoteWeights(address account, Vote[] memory votes, uint256 frozenWeight) internal {
         if (votes.length > 0) {
@@ -510,9 +507,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
     }
 
     /**
-        @dev Decreases receiver and total weights, using a vote array and the
-             registered weights of `msg.sender`. Account related values are not
-             adjusted, they must be handled in the calling function.
+     * @dev Decreases receiver and total weights, using a vote array and the
+     *          registered weights of `msg.sender`. Account related values are not
+     *          adjusted, they must be handled in the calling function.
      */
     function _removeVoteWeights(address account, Vote[] memory votes, uint256 frozenWeight) internal {
         if (votes.length > 0) {
@@ -524,7 +521,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         }
     }
 
-    /** @dev Should not be called directly, use `_addVoteWeights` */
+    /**
+     * @dev Should not be called directly, use `_addVoteWeights`
+     */
     function _addVoteWeightsUnfrozen(address account, Vote[] memory votes) internal {
         LockData[] memory lockData = _getAccountLocks(account);
         uint256 lockLength = lockData.length;
@@ -564,7 +563,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         totalDecayRate += uint32(totalDecay);
     }
 
-    /** @dev Should not be called directly, use `_addVoteWeights` */
+    /**
+     * @dev Should not be called directly, use `_addVoteWeights`
+     */
     function _addVoteWeightsFrozen(Vote[] memory votes, uint256 frozenWeight) internal {
         uint256 systemWeek = getWeek();
         uint256 totalWeight;
@@ -582,7 +583,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         totalWeeklyWeights[systemWeek] = uint40(getTotalWeightWrite() + totalWeight);
     }
 
-    /** @dev Should not be called directly, use `_removeVoteWeights` */
+    /**
+     * @dev Should not be called directly, use `_removeVoteWeights`
+     */
     function _removeVoteWeightsUnfrozen(address account, Vote[] memory votes) internal {
         LockData[] memory lockData = _getAccountLocks(account);
         uint256 lockLength = lockData.length;
@@ -621,7 +624,9 @@ contract IncentiveVoting is AltheaOwnable, DelegatedOps, SystemStart {
         totalDecayRate -= uint32(totalDecay);
     }
 
-    /** @dev Should not be called directly, use `_removeVoteWeights` */
+    /**
+     * @dev Should not be called directly, use `_removeVoteWeights`
+     */
     function _removeVoteWeightsFrozen(Vote[] memory votes, uint256 frozenWeight) internal {
         uint256 systemWeek = getWeek();
 

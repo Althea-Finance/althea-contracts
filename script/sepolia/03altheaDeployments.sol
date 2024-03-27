@@ -75,7 +75,6 @@ contract AltheaCoreDeployment is Script {
         deployInterimAdmin();
         vm.stopBroadcast();
 
-
         vm.startBroadcast();
         deployTokenLocker();
         theaToken.setLockerAddress(address(tokenLocker));
@@ -115,7 +114,6 @@ contract AltheaCoreDeployment is Script {
         factory.setStabilityPoolAddress(address(stabilityPool));
         vm.stopBroadcast();
 
-
         vm.startBroadcast();
         deployTroveManager();
         factory.setTroveManagerAddress(address(troveManager));
@@ -126,26 +124,24 @@ contract AltheaCoreDeployment is Script {
         tokenLocker.setIncentiveVotingAddress(address(incentiveVoting));
         vm.stopBroadcast();
 
-//        vm.startBroadcast();
-//        deployAltheaVault();
-//        stabilityPool.setAltheaVaultAddress(address(altheaVault));
-//        troveManager.setAltheaVaultAddress(address(altheaVault));
-//        incentiveVoting.setAltheaVaultAddress(address(altheaVault));
-//        vm.stopBroadcast();
+        //        vm.startBroadcast();
+        //        deployAltheaVault();
+        //        stabilityPool.setAltheaVaultAddress(address(altheaVault));
+        //        troveManager.setAltheaVaultAddress(address(altheaVault));
+        //        incentiveVoting.setAltheaVaultAddress(address(altheaVault));
+        //        vm.stopBroadcast();
 
         // new instances of TroveManager and SortedTroves
-//        vm.startBroadcast();
-//        factory.deployNewInstance(
-//            address(0), // debtToken. Will be set later
-//            address(stabilityPool),
-//            address(borrowerOperations),
-//            address(sortedTroves),
-//            address(troveManager),
-//            address(liquidationManager)
-//        );
-//        vm.stopBroadcast();
-
-
+        //        vm.startBroadcast();
+        //        factory.deployNewInstance(
+        //            address(0), // debtToken. Will be set later
+        //            address(stabilityPool),
+        //            address(borrowerOperations),
+        //            address(sortedTroves),
+        //            address(troveManager),
+        //            address(liquidationManager)
+        //        );
+        //        vm.stopBroadcast();
     }
 
     function deployAltheaCore() internal {
@@ -158,30 +154,20 @@ contract AltheaCoreDeployment is Script {
     }
 
     function deployPriceFeed() internal {
-
         PriceFeed.OracleSetup[] memory emptyArray = new PriceFeed.OracleSetup[](0);
 
-        priceFeed = new PriceFeed(
-            address(altheaCore),
-            ETH_PRICEFEED,
-            emptyArray
-        );
+        priceFeed = new PriceFeed(address(altheaCore), ETH_PRICEFEED, emptyArray);
     }
 
-
     function deployFeeReceiver() internal {
-        feeReceiver = new FeeReceiver(
-            address(altheaCore)
-        );
+        feeReceiver = new FeeReceiver(address(altheaCore));
     }
 
     function deployInterimAdmin() internal {
         interimAdmin = new InterimAdmin(address(altheaCore));
     }
 
-
     function deployTokenLocker() internal {
-
         uint256 lockToTokenRatio = 10 ** 18;
         //TODO: Frontend has to take this into account.
         //TODO: Can this actually have any other value?
@@ -212,8 +198,7 @@ contract AltheaCoreDeployment is Script {
     }
 
     function deployLiquidationManager() internal {
-
-        uint gasCompensation = 200 * 10 ** 18;
+        uint256 gasCompensation = 200 * 10 ** 18;
         // in debt units, from Prisma
 
         liquidationManager = new LiquidationManager(
@@ -231,11 +216,10 @@ contract AltheaCoreDeployment is Script {
 
     function deployBorrowerOperations() internal {
         // taken from Prisma
-        uint minNetDebt = 180 * 10 ** 18;
+        uint256 minNetDebt = 180 * 10 ** 18;
 
         // in debt units, from Prisma
-        uint gasCompensation = 200 * 10 ** 18;
-
+        uint256 gasCompensation = 200 * 10 ** 18;
 
         borrowerOperations = new BorrowerOperations(
             address(altheaCore),
@@ -247,11 +231,10 @@ contract AltheaCoreDeployment is Script {
     }
 
     function deployDebtToken() internal {
-
         string memory name = "aUSD";
         string memory symbol = "aUSD";
 
-        uint gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
+        uint256 gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
         uint8 sharedDecimals = 18;
 
         debtToken = new DebtToken(
@@ -278,10 +261,8 @@ contract AltheaCoreDeployment is Script {
         );
     }
 
-
     function deployTroveManager() internal {
-
-        uint gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
+        uint256 gasCompensation = 200 * 10 ** 18; //TODO: taken from PRISMA
 
         troveManager = new TroveManager(
             address(altheaCore),
@@ -302,15 +283,14 @@ contract AltheaCoreDeployment is Script {
         );
     }
 
-//    function deployAltheaVault() internal {
-//        altheaVault = new AltheaVault(
-//            address(altheaCore),
-//            IoTHEA,
-//            ITokenLocker(address(tokenLocker)),
-//            IIncentiveVoting(address(incentiveVoting)),
-//            address(stabilityPool),
-//            OWNER_ADDRESS // TODO: should be deployment manager
-//        );
-//    }
-
+    //    function deployAltheaVault() internal {
+    //        altheaVault = new AltheaVault(
+    //            address(altheaCore),
+    //            IoTHEA,
+    //            ITokenLocker(address(tokenLocker)),
+    //            IIncentiveVoting(address(incentiveVoting)),
+    //            address(stabilityPool),
+    //            OWNER_ADDRESS // TODO: should be deployment manager
+    //        );
+    //    }
 }
