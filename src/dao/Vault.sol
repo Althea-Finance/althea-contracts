@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/ITheaToken.sol";
-import {IoTHEA} from "../token/oTHeaRedemptions.sol";
+import {IoTHEA} from "../token/oTheaRedemptions.sol";
 import "../interfaces/IEmissionSchedule.sol";
 import "../interfaces/IIncentiveVoting.sol";
 import "../interfaces/ITokenLocker.sol";

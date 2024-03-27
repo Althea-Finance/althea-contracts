@@ -19,3 +19,7 @@ lib/
 
 .idea/
 *.idea
+
+*.idea
+
+.vscode/

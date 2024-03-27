@@ -22,7 +22,7 @@ import {TroveManager} from "src/core/TroveManager.sol";
 import {IIncentiveVoting} from "src/interfaces/IIncentiveVoting.sol";
 import {IncentiveVoting} from "src/dao/IncentiveVoting.sol";
 import {ITheaToken} from "src/interfaces/ITheaToken.sol";
-import {TheaToken} from "src/dao/TheaToken.sol";
+import {TheaToken} from "src/token/TheaToken.sol";
 import {InterimAdmin} from "src/dao/InterimAdmin.sol";
 import {FeeReceiver} from "src/dao/FeeReceiver.sol";
 import {ITokenLocker} from "src/interfaces/ITokenLocker.sol";

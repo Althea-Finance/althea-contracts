@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "lib/forge-std/src/Script.sol";
-import {TheaToken} from "src/dao/TheaToken.sol";
+import {TheaToken} from "src/token/TheaToken.sol";
 import "script/sepolia/00constants.sol";
 
 contract AltheaCoreDeployment is Script {

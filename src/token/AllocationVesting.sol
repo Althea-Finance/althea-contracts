@@ -2,14 +2,14 @@
 
 pragma solidity 0.8.19;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // @audit-info not needed, as Thea has its own interface ITheaToken
 import {ITheaToken} from "../interfaces/ITheaToken.sol";
 import {DelegatedOps} from "../dependencies/DelegatedOps.sol";
 import {ITokenLocker} from "../interfaces/ITokenLocker.sol";
 
 /**
  * @title Vesting contract for team and investors
- * @author PrismaFi
+ * @author PrismaFi  @audit-info search and replace Prisma -> Althea everywhere
  * @notice Vesting contract which allows transfer of future vesting claims
  */
 contract AllocationVesting is DelegatedOps {
@@ -25,12 +25,13 @@ contract AllocationVesting is DelegatedOps {
     error LockedAllocation();
     error SelfTransfer();
     error IncompatibleVestingPeriod(uint256 numberOfWeeksFrom, uint256 numberOfWeeksTo);
+    // @audit-info unused custom errors
 
     struct AllocationSplit {
         address recipient;
-        uint24 points;
-        uint8 numberOfWeeks;
-        uint8 weeksCliff;
+        uint24 points;  // max value = 16777215  // @audit make sure this cannot be exceeded
+        uint8 numberOfWeeks; // total duration in weeks of the linear vesting period
+        uint8 weeksCliff;  // number of weeks before the linear vesting starts
         uint8 tgePct; // in basis points of 10000
     }
 
@@ -81,7 +82,7 @@ contract AllocationVesting is DelegatedOps {
             if (weeksCliff > 0 && tgePct > 0) revert AllocationsMismatch();
             if (allocations[recipient].numberOfWeeks > 0 || allocations[recipient].tgePct > 0) revert DuplicateAllocation();
             total += points;
-            allocations[recipient].points = uint24(points);
+            allocations[recipient].points = uint24(points);  // @audit-issue unsafe downcasting. Should we include a sanity check here? or are we sure points cannot be higher than this?
             allocations[recipient].numberOfWeeks = numberOfWeeks;
             allocations[recipient].weeksCliff = allocationSplits[i].weeksCliff;
             allocations[recipient].tgePct = allocationSplits[i].tgePct;
@@ -101,6 +102,7 @@ contract AllocationVesting is DelegatedOps {
     function claim(address account) external callerOrDelegated(account) {
         AllocationState memory allocation = allocations[account];
         _claim(account, allocation.points, allocation.claimed, allocation.numberOfWeeks, allocation.weeksCliff, allocation.tgePct);
+        
     }
 
     // This function exists to avoid reloading the AllocationState struct in memory
@@ -182,6 +184,4 @@ contract AllocationVesting is DelegatedOps {
         uint256 accountAllocation = (totalAllocation * allocation.points) / totalPoints;
         return accountAllocation - allocation.claimed;
     }
-
-
 }

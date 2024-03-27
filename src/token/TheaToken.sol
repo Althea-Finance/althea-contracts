@@ -4,11 +4,11 @@ pragma solidity 0.8.19;
 
 import "../interfaces/IERC2612.sol";
 import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";  // @audit-info IERC20 not used here. Inherited as part of OFTV2 most likely
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol"; // @audit-info ERC20 not used here. Inherited as part of OFTV2 most likely
 
 /**
-    @title Prisma Governance Token
+    @title Prisma Governance Token  @audit-info search and replace Prisma -> Althea everywhere
     @notice Given as an incentive for users of the protocol. Can be locked in `TokenLocker`
             to receive lock weight, which gives governance power within the Prisma DAO.
  */
@@ -28,6 +28,8 @@ contract TheaToken is OFTV2, IERC2612 {
 
     // Cache the domain separator as an immutable value, but also store the chain id that it
     // corresponds to, in order to invalidate the cached domain separator if the chain id changes.
+    
+    // cached as immutable to save gas for as long as the chainId doesn't change
     bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
     uint256 private immutable _CACHED_CHAIN_ID;
 
@@ -37,7 +39,8 @@ contract TheaToken is OFTV2, IERC2612 {
     address public locker;
     address public allocationVesting;
 
-    uint256 public maxTotalSupply;
+    // @audit-issue maxTotalSupply is not checked when minting
+    uint256 public maxTotalSupply; // @audit-info max supply is known, so better store it as a constant, to save tons of gas (because it gets hardcoded in the bytecode instead of reading from storage)
 
     mapping(address => uint256) private _nonces;
 
@@ -57,20 +60,30 @@ contract TheaToken is OFTV2, IERC2612 {
     }
 
     function setAllocationVestingAddress(address _allocationVesting) external onlyOwner {
+        // Once the Allocation vesting is set, it cannot be ever updated
         require(allocationVesting == address(0), "AllocationVesting address already set");
         allocationVesting = _allocationVesting;
+        // @audit-info missing event in state changing function
     }
 
+    // @audit-info this is not really minting to the AllocationVesting. It mints to `to`, but it is invoked by the allocationVesting
     function mintToAllocationVesting(address to, uint256 amount) external {
-        // caller must be allocationVesting
+        // Only allocationVesting is ever allowed to mint THEA tokens
+        // @audit-issue validate that the maxSupply is not exceeded when minting
         require(msg.sender == allocationVesting, "Not allocationVesting");
         _mint(to, amount);
     }
 
-
     function setLockerAddress(address _locker) external onlyOwner {
         require(locker == address(0), "Locker address already set");
         locker = _locker;
+        // @audit-info missing event in state changing function
+    }
+
+    function transferToLocker(address sender, uint256 amount) external returns (bool) {
+        require(msg.sender == locker, "Not locker");
+        _transfer(sender, locker, amount);
+        return true;
     }
 
     // --- EIP 2612 functionality ---
@@ -100,6 +113,7 @@ contract TheaToken is OFTV2, IERC2612 {
                 keccak256(abi.encode(permitTypeHash, owner, spender, amount, _nonces[owner]++, deadline))
             )
         );
+        // @audit-issue ecrecover is vulnerable to signature malleability, but I guess it is fine in this case
         address recoveredAddress = ecrecover(digest, v, r, s);
         require(recoveredAddress == owner, "PRISMA: invalid signature");
         _approve(owner, spender, amount);
@@ -108,12 +122,6 @@ contract TheaToken is OFTV2, IERC2612 {
     function nonces(address owner) external view override returns (uint256) {
         // FOR EIP 2612
         return _nonces[owner];
-    }
-
-    function transferToLocker(address sender, uint256 amount) external returns (bool) {
-        require(msg.sender == locker, "Not locker");
-        _transfer(sender, locker, amount);
-        return true;
     }
 
     // --- Internal operations ---
