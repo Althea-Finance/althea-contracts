@@ -24,7 +24,7 @@ contract DelegatedOps {
     mapping(address owner => mapping(address caller => bool isApproved)) public isApprovedDelegate;
 
     modifier callerOrDelegated(address _account) {
-        if (msg.sender != account) {
+        if (msg.sender != _account) {
             if (!isApprovedDelegate[_account][msg.sender]) {
                 revert CallerNotApproved(msg.sender, _account);
             }
