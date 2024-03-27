@@ -166,9 +166,9 @@ contract AllocationVesting is DelegatedOps {
         }
 
         uint256 vestingWeeks = numberOfWeeks * 1 weeks;
-        uint256 vestingEnd = vestingStart + weeksCliff + vestingWeeks;
+        uint256 vestingEnd = vestingStart + (weeksCliff + 1 weeks) + vestingWeeks;
         uint256 endTime = when >= vestingEnd ? vestingEnd : when;
-        uint256 timeSinceStart = endTime - vestingStart - weeksCliff;
+        uint256 timeSinceStart = endTime - vestingStart - (weeksCliff + 1 weeks);
         vested += (totalAllocation * timeSinceStart * points) / (totalPoints * vestingWeeks);
     }
 
