@@ -2,97 +2,85 @@
 
 pragma solidity 0.8.19;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // @audit-info not needed, as Thea has its own interface ITheaToken
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ITheaToken} from "../interfaces/ITheaToken.sol";
 import {DelegatedOps} from "../dependencies/DelegatedOps.sol";
 import {ITokenLocker} from "../interfaces/ITokenLocker.sol";
 
 /**
  * @title Vesting contract for team and investors
- * @author PrismaFi  @audit-info search and replace Prisma -> Althea everywhere
+ * @author PrismaFi
  * @notice Vesting contract which allows transfer of future vesting claims
  */
 contract AllocationVesting is DelegatedOps {
     error NothingToClaim();
-    error CannotLock();
-    error PreclaimTooLarge();
-    error AllocationsMismatch();
     error ZeroTotalAllocation();
-    error ZeroAllocation();
-    error ZeroNumberOfWeeks();
+    error ZeroAllocationForWallet(address recipient);
     error DuplicateAllocation();
-    error InsufficientPoints();
-    error LockedAllocation();
-    error SelfTransfer();
     error IncompatibleVestingPeriod(uint256 numberOfWeeksFrom, uint256 numberOfWeeksTo);
-    // @audit-info unused custom errors
+    error TooMuchAllocation();
 
-    struct AllocationSplit {
+    event VestingClaimed(address indexed account, uint256 amount);
+
+    struct LinearVesting {
         address recipient;
-        uint24 points; // max value = 16777215  // @audit make sure this cannot be exceeded
-        uint8 numberOfWeeks; // total duration in weeks of the linear vesting period
-        uint8 weeksCliff; // number of weeks before the linear vesting starts
-        uint8 tgePct; // in basis points of 10000
+        uint256 allocationAtEndDate; // in tokens
+        uint256 allocationAtStartDate; // in tokens
+        uint256 startDate;
+        uint256 endDate;
     }
 
     struct AllocationState {
-        uint24 points;
-        uint8 numberOfWeeks;
-        uint128 claimed;
-        uint8 weeksCliff;
-        uint8 tgePct;
+        address recipient;
+        uint256 claimed; // in tokens
+        uint256 allocationAtEndDate; // in tokens
+        uint256 allocationAtStartDate; // in tokens
+        uint256 startDate;
+        uint256 endDate;
     }
 
-    // This number should allow a good precision in allocation fractions
-    uint256 private immutable totalPoints;
     // Users allocations
     mapping(address => AllocationState) public allocations;
-    // Total allocation expressed in tokens
-    uint256 public immutable totalAllocation;
+
     ITheaToken public immutable vestingToken;
-    ITokenLocker public immutable tokenLocker;
-    uint256 public immutable lockToTokenRatio;
-    // Vesting timeline starting timestamp
-    uint256 public immutable vestingStart;
+    uint256 public immutable totalAllocation;
 
-    constructor(
-        ITheaToken vestingToken_,
-        ITokenLocker tokenLocker_,
-        uint256 totalAllocation_,
-        uint256 vestingStart_,
-        AllocationSplit[] memory allocationSplits
-    ) {
-        if (totalAllocation_ == 0) revert ZeroTotalAllocation();
-        tokenLocker = tokenLocker_;
-        vestingToken = vestingToken_;
-        totalAllocation = totalAllocation_;
-        lockToTokenRatio = tokenLocker_.lockToTokenRatio();
+    constructor(ITheaToken _vestingToken, LinearVesting[] memory _allocations) {
+        vestingToken = _vestingToken;
 
-        vestingStart = vestingStart_;
-        uint256 loopEnd = allocationSplits.length;
-        uint256 total;
-        for (uint256 i; i < loopEnd;) {
-            address recipient = allocationSplits[i].recipient;
-            uint8 numberOfWeeks = allocationSplits[i].numberOfWeeks;
-            uint8 weeksCliff = allocationSplits[i].weeksCliff;
-            uint8 tgePct = allocationSplits[i].tgePct;
-            uint256 points = allocationSplits[i].points;
-            if (points == 0) revert ZeroAllocation();
-            if (numberOfWeeks == 0 && tgePct != 10000) revert ZeroNumberOfWeeks();
-            if (weeksCliff > 0 && tgePct > 0) revert AllocationsMismatch();
-            if (allocations[recipient].numberOfWeeks > 0 || allocations[recipient].tgePct > 0) {
-                revert DuplicateAllocation();
-            }
-            total += points;
-            allocations[recipient].points = uint24(points); // @audit-issue unsafe downcasting. Should we include a sanity check here? or are we sure points cannot be higher than this?
-            allocations[recipient].numberOfWeeks = numberOfWeeks;
-            allocations[recipient].weeksCliff = allocationSplits[i].weeksCliff;
-            allocations[recipient].tgePct = allocationSplits[i].tgePct;
+        totalAllocation = _vestingToken.totalSupply() / 2; // only vest 50% of the total supply, the rest are Emissions
+        if (totalAllocation == 0) revert ZeroTotalAllocation();
+
+        uint256 loopEnd = _allocations.length;
+        uint256 totalVesting = 0;
+        for (uint256 i; i < loopEnd; ) {
+            address recipient = _allocations[i].recipient;
+            uint256 allocationAtEndDate = _allocations[i].allocationAtEndDate;
+
+            uint256 allocationAtStartDate = _allocations[i].allocationAtStartDate;
+            uint256 startDate = _allocations[i].startDate;
+            uint256 endDate = _allocations[i].endDate;
+            if (allocationAtEndDate == 0) revert ZeroAllocationForWallet(recipient);
+            if (startDate == 0 || endDate == 0 || startDate >= endDate || startDate == endDate)
+                revert IncompatibleVestingPeriod(startDate, endDate);
+            if (allocations[recipient].allocationAtEndDate > 0) revert DuplicateAllocation();
+
+            allocations[recipient] = AllocationState(
+                recipient,
+                0,
+                allocationAtEndDate,
+                allocationAtStartDate,
+                startDate,
+                endDate
+            );
+
+            totalVesting += allocationAtEndDate;
+            if (totalVesting > totalAllocation) revert TooMuchAllocation();
+
             unchecked {
                 ++i;
             }
         }
-        totalPoints = total;
     }
 
     /**
@@ -103,32 +91,26 @@ contract AllocationVesting is DelegatedOps {
      */
     function claim(address account) external callerOrDelegated(account) {
         AllocationState memory allocation = allocations[account];
-        _claim(
-            account,
-            allocation.points,
-            allocation.claimed,
-            allocation.numberOfWeeks,
-            allocation.weeksCliff,
-            allocation.tgePct
-        );
+        uint256 amount = _claim(allocation);
+        emit VestingClaimed(account, amount);
     }
 
     // This function exists to avoid reloading the AllocationState struct in memory
-    function _claim(
-        address account,
-        uint256 points,
-        uint256 claimed,
-        uint256 numberOfWeeks,
-        uint8 weeksCliff,
-        uint8 tgePct
-    ) private returns (uint256 claimedUpdated) {
-        if (points == 0) revert NothingToClaim();
-        uint256 claimable = _claimableAt(block.timestamp, points, claimed, numberOfWeeks, weeksCliff, tgePct);
+    function _claim(AllocationState memory allocation) private returns (uint256 claimedUpdated) {
+        address recipient = allocation.recipient;
+        uint256 claimable = _claimableAt(
+            block.timestamp,
+            allocation.allocationAtStartDate,
+            allocation.allocationAtEndDate,
+            allocation.startDate,
+            allocation.endDate,
+            allocation.claimed
+        );
         if (claimable == 0) revert NothingToClaim();
-        claimedUpdated = claimed + claimable;
-        allocations[account].claimed = uint128(claimedUpdated);
+        claimedUpdated = allocation.claimed + claimable;
+        allocations[recipient].claimed = claimedUpdated;
 
-        vestingToken.mintToAllocationVesting(account, claimable);
+        vestingToken.mintToAllocationVesting(recipient, claimable);
 
         // We send to delegate for possible zaps
         //        vestingToken.transferFrom(vault, msg.sender, claimable);
@@ -143,59 +125,41 @@ contract AllocationVesting is DelegatedOps {
         AllocationState memory allocation = allocations[account];
         claimable = _claimableAt(
             block.timestamp,
-            allocation.points,
-            allocation.claimed,
-            allocation.numberOfWeeks,
-            allocation.weeksCliff,
-            allocation.tgePct
+            allocation.allocationAtStartDate,
+            allocation.allocationAtEndDate,
+            allocation.startDate,
+            allocation.endDate,
+            allocation.claimed
         );
     }
 
     function _claimableAt(
         uint256 when,
-        uint256 points,
-        uint256 claimed,
-        uint256 numberOfWeeks,
-        uint8 weeksCliff,
-        uint8 tgePct
-    ) private view returns (uint256) {
-        uint256 totalVested = _vestedAt(when, points, numberOfWeeks, weeksCliff, tgePct);
+        uint256 allocationAtStartDate,
+        uint256 allocationAtEndDate,
+        uint256 startDate,
+        uint256 endDate,
+        uint256 claimed
+    ) private pure returns (uint256) {
+        uint256 totalVested = _vestedAt(when, allocationAtStartDate, allocationAtEndDate, startDate, endDate);
         return totalVested > claimed ? totalVested - claimed : 0;
     }
 
-    function _vestedAt(uint256 when, uint256 points, uint256 numberOfWeeks, uint8 weeksCliff, uint8 tgePct)
-        private
-        view
-        returns (uint256 vested)
-    {
-        if (vestingStart == 0 || (numberOfWeeks == 0 && tgePct != 0)) return 0;
-        if (when < vestingStart) return 0;
+    function _vestedAt(
+        uint256 when,
+        uint256 allocationAtStartDate,
+        uint256 allocationAtEndDate,
+        uint256 startDate,
+        uint256 endDate
+    ) private pure returns (uint256 vested) {
+        if (when == 0 || startDate == 0 || endDate == 0 || startDate > endDate || allocationAtEndDate == 0) return 0;
+        if (when < startDate) return 0;
 
-        if (tgePct > 0) {
-            vested = (totalAllocation * tgePct) / 10000;
-            if (when < vestingStart + weeksCliff * 1 weeks) return vested;
-        }
-
-        if (weeksCliff > 0) {
-            uint256 cliffEnd = vestingStart + weeksCliff * 1 weeks;
-            if (when < cliffEnd) return 0;
-        }
-
-        uint256 vestingWeeks = numberOfWeeks * 1 weeks;
-        uint256 vestingEnd = vestingStart + (weeksCliff + 1 weeks) + vestingWeeks;
-        uint256 endTime = when >= vestingEnd ? vestingEnd : when;
-        uint256 timeSinceStart = endTime - vestingStart - (weeksCliff + 1 weeks);
-        vested += (totalAllocation * timeSinceStart * points) / (totalPoints * vestingWeeks);
-    }
-
-    /**
-     * @notice Calculates the total number of tokens left unclaimed by the user including unvested ones
-     * @param account Account to calculate for
-     * @return Unclaimed tokens
-     */
-    function unclaimed(address account) external view returns (uint256) {
-        AllocationState memory allocation = allocations[account];
-        uint256 accountAllocation = (totalAllocation * allocation.points) / totalPoints;
-        return accountAllocation - allocation.claimed;
+        uint256 endTime = when >= endDate ? endDate : when;
+        uint256 timeSinceStart = endTime - startDate;
+        uint256 totalVestingTime = endDate - startDate; //cannot be 0
+        vested =
+            (((allocationAtEndDate - allocationAtStartDate) * timeSinceStart) / totalVestingTime) +
+            allocationAtStartDate;
     }
 }

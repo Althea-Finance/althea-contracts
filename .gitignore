@@ -20,6 +20,8 @@ lib/
 .idea/
 *.idea
 
+.prettierrc
+
 *.idea
 
 .vscode/
