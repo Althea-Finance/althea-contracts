@@ -92,45 +92,6 @@ contract AllocationVesting is DelegatedOps {
         totalPoints = total;
     }
 
-//    /**
-//     * @notice Claims accrued tokens for initiator and transfers a number of allocation points to a recipient
-//     * @dev Can be delegated
-//     * @param from Initiator
-//     * @param to Recipient
-//     * @param points Number of points to transfer
-//     */
-//    function transferPoints(address from, address to, uint256 points) external callerOrDelegated(from) {
-//        if (from == to) revert SelfTransfer();
-//        AllocationState memory fromAllocation = allocations[from];
-//        AllocationState memory toAllocation = allocations[to];
-//        uint8 numberOfWeeksFrom = fromAllocation.numberOfWeeks;
-//        uint8 numberOfWeeksTo = toAllocation.numberOfWeeks;
-//
-//        uint256 pointsFrom = fromAllocation.points;
-//        if (numberOfWeeksTo != 0 && numberOfWeeksTo != numberOfWeeksFrom)
-//            revert IncompatibleVestingPeriod(numberOfWeeksFrom, numberOfWeeksTo);
-//        uint256 totalVested = _vestedAt(block.timestamp, pointsFrom, numberOfWeeksFrom);
-//        if (totalVested < fromAllocation.claimed) revert LockedAllocation();
-//        if (points == 0) revert ZeroAllocation();
-//        if (pointsFrom < points) revert InsufficientPoints();
-//        // We claim one last time before transfer
-//        uint256 claimed = _claim(from, pointsFrom, fromAllocation.claimed, numberOfWeeksFrom);
-//        // Passive balance to transfer
-//        uint128 claimedAdjustment = uint128((claimed * points) / fromAllocation.points);
-//        allocations[from].points = uint24(pointsFrom - points);
-//        // we can't use fromAllocation.claimed since the storage value was modified by the _claim() call
-//        allocations[from].claimed = allocations[from].claimed - claimedAdjustment;
-//        allocations[to].points = toAllocation.points + uint24(points);
-//        allocations[to].claimed = toAllocation.claimed + claimedAdjustment;
-////        // Transfer preclaimed pro-rata to avoid limit gaming
-////        uint256 preclaimedToTransfer = (fromAllocation.preclaimed * points) / pointsFrom;
-////        allocations[to].preclaimed = uint96(toAllocation.preclaimed + preclaimedToTransfer);
-////        allocations[from].preclaimed = uint96(fromAllocation.preclaimed - preclaimedToTransfer);
-//        if (numberOfWeeksTo == 0) {
-//            allocations[to].numberOfWeeks = numberOfWeeksFrom;
-//        }
-//    }
-
     /**
      *
      * @notice Claims accrued tokens
