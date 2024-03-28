@@ -18,7 +18,5 @@ contract BaseToken is Test {
             address(0), // locker
             18 // sharedDecimals
         );
-
-       
     }
 }

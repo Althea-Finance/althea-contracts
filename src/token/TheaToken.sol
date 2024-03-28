@@ -32,11 +32,9 @@ contract TheaToken is OFTV2 {
 
     // @audit-issue during bootstrap period, owner can add new minters. Ownerhsip will be eventually transferred to the dao when Dao is ready
 
-    constructor(
-        address _layerZeroEndpoint,
-        address _locker,
-        uint8 _sharedDecimals
-    ) OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint) {
+    constructor(address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
+        OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint)
+    {
         locker = _locker;
     }
 

@@ -18,7 +18,7 @@ contract AllocationVesting is DelegatedOps {
     error ZeroAllocationForWallet(address recipient);
     error DuplicateAllocation(address recipient);
     error InvalidVestingPeriod(uint256 startDate, uint256 endDate);
-    error InvalidTotalAllocation();
+    error InvalidTotalAllocation(uint256 totalAmount);
 
     event VestingClaimed(address indexed account, uint256 amount);
 
@@ -78,7 +78,7 @@ contract AllocationVesting is DelegatedOps {
             totalAmount += allocationAtEndDate;
         }
         // The sum of all allocations must match exaclty the expected total allocation
-        if (totalAmount != _totalVestedAllocation) revert InvalidTotalAllocation();
+        if (totalAmount != _totalVestedAllocation) revert InvalidTotalAllocation(totalAmount);
         totalAllocation = totalAmount;
     }
 
