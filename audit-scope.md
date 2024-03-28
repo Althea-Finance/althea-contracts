@@ -14,7 +14,7 @@ Contracts in scope:
 |----------------------------------|------|
 | /src/common/DelegateOps.sol      | 18   | 
 | /src/token/TheaToken.sol         | 37   | 
-| /src/token/AllocationVesting.sol |      | 
+| /src/token/AllocationVesting.sol |  40    | 
 
 Dependencies:
 - LayerZero OFT for multichain support
