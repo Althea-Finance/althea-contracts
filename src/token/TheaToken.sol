@@ -21,40 +21,43 @@ contract TheaToken is OFTV2 {
     address public allocationVesting;
 
     // @audit-issue maxTotalSupply is not checked when minting
-    uint256 public maxTotalSupply; // @audit-info max supply is known, so better store it as a constant, to save tons of gas (because it gets hardcoded in the bytecode instead of reading from storage)
+    uint256 public maxTotalSupply = 10 ** 8 * 10 ** 18; // 100 million THEA
 
     mapping(address => uint256) private _nonces;
 
+    mapping(address => bool) public minters;
+
+    event MinterAdded(address indexed minter);
+    event LockerAddressSet(address indexed locker);
+
     // @audit-issue during bootstrap period, owner can add new minters. Ownerhsip will be eventually transferred to the dao when Dao is ready
 
-    constructor(address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
-        OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint)
-    {
+    constructor(
+        address _layerZeroEndpoint,
+        address _locker,
+        uint8 _sharedDecimals
+    ) OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint) {
         locker = _locker;
     }
 
     //////////////////////////// SETTERS (OnlyOwner) //////////////////////////////
 
-    function setAllocationVestingAddress(address _allocationVesting) external onlyOwner {
-        // Once the Allocation vesting is set, it cannot be ever updated
-        require(allocationVesting == address(0), "AllocationVesting address already set");
-        allocationVesting = _allocationVesting;
-        // @audit-info missing event in state changing function
+    function addMinter(address _minter) external onlyOwner {
+        minters[_minter] = true;
+        emit MinterAdded(_minter);
     }
 
     function setLockerAddress(address _locker) external onlyOwner {
         require(locker == address(0), "Locker address already set");
         locker = _locker;
-        // @audit-info missing event in state changing function
+        emit LockerAddressSet(_locker);
     }
 
     //////////////////////////// EXTERNAL //////////////////////////////
 
-    // @audit-info this is not really minting to the AllocationVesting. It mints to `to`, but it is invoked by the allocationVesting
-    function mintToAllocationVesting(address to, uint256 amount) external {
-        // Only allocationVesting is ever allowed to mint THEA tokens
-        // @audit-issue validate that the maxSupply is not exceeded when minting
-        require(msg.sender == allocationVesting, "Not allocationVesting");
+    function mintTo(address to, uint256 amount) external {
+        require(totalSupply() + amount <= maxTotalSupply, "Exceeds maxTotalSupply");
+        require(minters[msg.sender], "Not allowed minter");
         _mint(to, amount);
     }
 

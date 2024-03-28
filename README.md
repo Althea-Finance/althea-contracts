@@ -24,3 +24,15 @@ Install manually the following dependencies:
 Check all dependencies were installed correctly:
 
     forge build
+
+# Scripts
+
+Install npx:
+
+    npm install -g npx
+
+To run a javascript script, use `npx tsx [file]`:
+
+    npx tsx script/prepareAllocations.js
+
+This will generate a contract with the allocations for the token holders that can be used in the test suite and the deployment scripts.
