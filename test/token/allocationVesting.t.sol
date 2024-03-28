@@ -51,7 +51,7 @@ contract AllocationTest is BaseToken {
         super.setUp();
         vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), allAllocations);
         vm.prank(deployer);
-        theaToken.addMinter(address(vestingContract));
+        theaToken.setMinterStatus(address(vestingContract), true);
         vm.warp(1713173058); // 15-04-2024. Start in TGE
     }
 

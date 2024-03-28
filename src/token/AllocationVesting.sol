@@ -2,15 +2,13 @@
 
 pragma solidity 0.8.19;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ITheaToken} from "../interfaces/ITheaToken.sol";
 import {DelegatedOps} from "../dependencies/DelegatedOps.sol";
-import {ITokenLocker} from "../interfaces/ITokenLocker.sol";
 
 /**
  * @title Vesting contract for team and investors
- * @author PrismaFi
- * @notice Vesting contract which allows transfer of future vesting claims
+ * @author Althea
+ * @notice Linear vesting contract with allocations for mutliple addresses with different cliffs, slopes, amounts etc.
  */
 contract AllocationVesting is DelegatedOps {
     error NothingToClaim();
@@ -82,6 +80,8 @@ contract AllocationVesting is DelegatedOps {
         totalAllocation = totalAmount;
     }
 
+    //////////////////////// EXTERNAL ///////////////////////////
+
     /**
      *
      * @notice Claims vested tokens
@@ -100,8 +100,10 @@ contract AllocationVesting is DelegatedOps {
         emit VestingClaimed(account, claimable);
     }
 
+    //////////////////////// VIEW ///////////////////////////
+
     /**
-     * @notice Calculates number of tokens claimable by the user at the current block
+     * @notice Calculates number of tokens claimable by `account` at the current block
      * @param account Account to calculate for
      * @return claimable Accrued tokens
      */
@@ -109,9 +111,16 @@ contract AllocationVesting is DelegatedOps {
         claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
     }
 
+    /**
+     * @notice Calculates number of tokens vested at a given time `when`. It ignores if they have been claimed or not.
+     * @param account Account to calculate for
+     * @return Vested tokes at `when` timestamp
+     */
     function vestedAt(uint256 when, address account) external view returns (uint256) {
         return _vestedAt(when, account);
     }
+
+    //////////////////////// INTERNAL ///////////////////////////
 
     function _vestedAt(uint256 when, address recipient) private view returns (uint256 vested) {
         AllocationState memory allocation = allocations[recipient];

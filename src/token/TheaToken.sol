@@ -3,8 +3,6 @@
 pragma solidity 0.8.19;
 
 import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // @audit-info IERC20 not used here. Inherited as part of OFTV2 most likely
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol"; // @audit-info ERC20 not used here. Inherited as part of OFTV2 most likely
 
 /**
  * @title Prisma Governance Token  @audit-info search and replace Prisma -> Althea everywhere
@@ -17,52 +15,45 @@ contract TheaToken is OFTV2 {
     string internal constant _NAME = "Thea Governance Token";
     string internal constant _SYMBOL = "THEA";
 
-    address public locker;
+    // @audit review if we need this address, or it would be just a normal minter:
+    // @audit consider if we should control in this contract, wether a mint comes from oThea redemptions, or vesting allocations, and control individual supplies?
     address public allocationVesting;
-
-    // @audit-issue maxTotalSupply is not checked when minting
-    uint256 public maxTotalSupply = 10 ** 8 * 10 ** 18; // 100 million THEA
-
-    mapping(address => uint256) private _nonces;
+    
+    // max total supply hardcoded and never exceeded
+    uint256 public constant maxTotalSupply =  100_000_000 * 1e18; // 100 million THEA
 
     mapping(address => bool) public minters;
 
-    event MinterAdded(address indexed minter);
-    event LockerAddressSet(address indexed locker);
+    event MinterStatusUpdated(address indexed minter, bool newStatus);
 
-    // @audit-issue during bootstrap period, owner can add new minters. Ownerhsip will be eventually transferred to the dao when Dao is ready
+    error MinterStatusAlreadySet();
+    error MaxSupplyExceeded();
+    error UnauthorizedMinter();
+
+    // @audit during bootstrap period, owner can add new minters. Ownerhsip will be eventually transferred to the dao when Dao is ready
+    // @audit reviiew if we should limit the number of minters to a specific entity 
 
     constructor(address _layerZeroEndpoint, address _locker, uint8 _sharedDecimals)
         OFTV2(_NAME, _SYMBOL, _sharedDecimals, _layerZeroEndpoint)
-    {
-        locker = _locker;
-    }
+    {}
 
     //////////////////////////// SETTERS (OnlyOwner) //////////////////////////////
+    
+    function setMinterStatus(address _minter, bool _enabled) external onlyOwner {
+        if (minters[_minter] == _enabled) revert MinterStatusAlreadySet();
 
-    function addMinter(address _minter) external onlyOwner {
-        minters[_minter] = true;
-        emit MinterAdded(_minter);
-    }
-
-    function setLockerAddress(address _locker) external onlyOwner {
-        require(locker == address(0), "Locker address already set");
-        locker = _locker;
-        emit LockerAddressSet(_locker);
+        minters[_minter] = _enabled;
+        emit MinterStatusUpdated(_minter, _enabled);
     }
 
     //////////////////////////// EXTERNAL //////////////////////////////
 
+    // minting zero amount is not dangerous here // review
     function mintTo(address to, uint256 amount) external {
-        require(totalSupply() + amount <= maxTotalSupply, "Exceeds maxTotalSupply");
-        require(minters[msg.sender], "Not allowed minter");
+        if (!minters[msg.sender]) revert UnauthorizedMinter();
+        if (totalSupply() + amount > maxTotalSupply) revert MaxSupplyExceeded();
+        
         _mint(to, amount);
-    }
-
-    function transferToLocker(address sender, uint256 amount) external returns (bool) {
-        require(msg.sender == locker, "Not locker");
-        _transfer(sender, locker, amount);
-        return true;
     }
 
     //////////////////////////// INTERNAL //////////////////////////////
