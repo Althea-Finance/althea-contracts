@@ -10,8 +10,6 @@ import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
  *             to receive lock weight, which gives governance power within the Prisma DAO.
  */
 contract TheaToken is OFTV2 {
-    // --- ERC20 Data ---
-
     string internal constant _NAME = "Thea Governance Token";
     string internal constant _SYMBOL = "THEA";
 
@@ -22,6 +20,7 @@ contract TheaToken is OFTV2 {
     // max total supply hardcoded and never exceeded
     uint256 public constant maxTotalSupply =  100_000_000 * 1e18; // 100 million THEA
 
+    // allowed minters. 
     mapping(address => bool) public minters;
 
     event MinterStatusUpdated(address indexed minter, bool newStatus);
@@ -59,6 +58,7 @@ contract TheaToken is OFTV2 {
     //////////////////////////// INTERNAL //////////////////////////////
 
     function _beforeTokenTransfer(address, address to, uint256) internal virtual override {
+        // @audit do we really need this?
         require(to != address(this), "ERC20: transfer to the token address");
     }
 }
