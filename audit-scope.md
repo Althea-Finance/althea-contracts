@@ -1,6 +1,6 @@
 # Audit scopes
 
-## [Phase 1]: Token Launch & Vesting 
+## [Phase 1]: Token Launch & Vesting
 
 - Deployment date: 16th April
 - Expected audit start date: 1st April
@@ -13,16 +13,16 @@ Contracts in scope:
 | Contract                         | SLOC |
 |----------------------------------|------|
 | /src/common/DelegateOps.sol      | 18   | 
-| /src/token/TheaToken.sol         | 37   | 
-| /src/token/AllocationVesting.sol |  40    | 
+| /src/token/TheaToken.sol         | 21   | 
+| /src/token/AllocationVesting.sol | 39   | 
 
 Dependencies:
+
 - LayerZero OFT for multichain support
 
 ### Not in scope
 
 External libraries like OpenZeppelin and LayerZero are not in scope.
-
 
 ## [Phase 2]: CDP stablecoin & DAO
 
