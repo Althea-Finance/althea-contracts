@@ -16,13 +16,14 @@ contract AllocationVesting is DelegatedOps {
     error NothingToClaim();
     error ZeroTotalAllocation();
     error ZeroAllocationForWallet(address recipient);
-    error DuplicateAllocation();
-    error IncompatibleVestingPeriod(uint256 numberOfWeeksFrom, uint256 numberOfWeeksTo);
-    error TooMuchAllocation();
+    error DuplicateAllocation(address recipient);
+    error InvalidVestingPeriod(uint256 startDate, uint256 endDate);
+    error InvalidTotalAllocation();
 
     event VestingClaimed(address indexed account, uint256 amount);
 
     struct LinearVesting {
+        // @audit-info we could use some storage packing here to save gas. But not important
         address recipient;
         uint256 allocationAtEndDate; // in tokens
         uint256 allocationAtStartDate; // in tokens
@@ -43,63 +44,57 @@ contract AllocationVesting is DelegatedOps {
     // Users allocations
     mapping(address => AllocationState) public allocations;
 
+    // 50% of the THEA's maxSupply is configured in this contract as vested tokens,
+    // while the remaining 50% will be allocated to the oTHEA token, which can be redeemed for THEA 1:1
     ITheaToken public immutable vestingToken;
+
+    // The sum of all allocations from all linear vestings in this contract. The sum must match 50% of THEA's maxSupply
     uint256 public immutable totalAllocation;
 
-    constructor(ITheaToken _vestingToken, LinearVesting[] memory _allocations) {
+    constructor(ITheaToken _vestingToken, LinearVesting[] memory _linearVestings) {
         vestingToken = _vestingToken;
 
-        totalAllocation = _vestingToken.maxTotalSupply() / 2; // only vest 50% of the total supply, the rest are Emissions
-        if (totalAllocation == 0) revert ZeroTotalAllocation();
+        // @audit make sure this assumption of 50% supply here is correct after talking to Hercules launchpad, in case they do IDO vestings
+        uint256 _totalVestedAllocation = _vestingToken.maxTotalSupply() / 2; // only vest 50% of the total supply, the rest are Emissions
+        if (_totalVestedAllocation == 0) revert ZeroTotalAllocation();
 
-        uint256 loopEnd = _allocations.length;
-        uint256 totalVesting = 0;
-        for (uint256 i; i < loopEnd; ) {
-            address recipient = _allocations[i].recipient;
-            uint256 allocationAtEndDate = _allocations[i].allocationAtEndDate;
+        uint256 loopEnd = _linearVestings.length;
+        uint256 totalAmount = 0;
+        for (uint256 i; i < loopEnd; i++) {
+            address recipient = _linearVestings[i].recipient;
+            uint256 allocationAtEndDate = _linearVestings[i].allocationAtEndDate;
+            uint256 allocationAtStartDate = _linearVestings[i].allocationAtStartDate;
+            uint256 startDate = _linearVestings[i].startDate;
+            uint256 endDate = _linearVestings[i].endDate;
 
-            uint256 allocationAtStartDate = _allocations[i].allocationAtStartDate;
-            uint256 startDate = _allocations[i].startDate;
-            uint256 endDate = _allocations[i].endDate;
             if (allocationAtEndDate == 0) revert ZeroAllocationForWallet(recipient);
 
-            if (startDate >= endDate || startDate < block.timestamp)
-                revert IncompatibleVestingPeriod(startDate, endDate);
-            if (allocations[recipient].allocationAtEndDate > 0) revert DuplicateAllocation();
+            if (startDate >= endDate || startDate < block.timestamp) revert InvalidVestingPeriod(startDate, endDate);
+            if (allocations[recipient].allocationAtEndDate > 0) revert DuplicateAllocation(recipient);
 
-            allocations[recipient] = AllocationState(
-                recipient,
-                0,
-                allocationAtEndDate,
-                allocationAtStartDate,
-                startDate,
-                endDate
-            );
+            allocations[recipient] =
+                AllocationState(recipient, 0, allocationAtEndDate, allocationAtStartDate, startDate, endDate);
 
-            totalVesting += allocationAtEndDate;
-            // @audit instead of setting the variable to storage and reading it here, store it as a memory variable above, and only save it to storage once the function is finished
-            if (totalVesting > totalAllocation) revert TooMuchAllocation();
-
-            unchecked {
-                ++i;
-            }
+            totalAmount += allocationAtEndDate;
         }
+        // The sum of all allocations must match exaclty the expected total allocation
+        if (totalAmount != _totalVestedAllocation) revert InvalidTotalAllocation();
+        totalAllocation = totalAmount;
     }
 
     /**
      *
-     * @notice Claims accrued tokens
+     * @notice Claims vested tokens
      * @dev Can be delegated
      * @param account Account to claim for
      */
     function claim(address account) external callerOrDelegated(account) {
-        AllocationState memory allocation = allocations[account];
-        uint256 claimable = _vestedAt(block.timestamp, account) - allocation.claimed;
+        uint256 claimed = allocations[account].claimed; // only read claimed from storage, not the full struct as it is not needed here
+        uint256 claimable = _vestedAt(block.timestamp, account) - claimed;
 
         if (claimable == 0) revert NothingToClaim();
 
-        allocations[account].claimed = allocation.claimed + claimable;
-
+        allocations[account].claimed = claimed + claimable;
         vestingToken.mintTo(account, claimable);
 
         emit VestingClaimed(account, claimable);
@@ -111,8 +106,7 @@ contract AllocationVesting is DelegatedOps {
      * @return claimable Accrued tokens
      */
     function claimableNow(address account) external view returns (uint256 claimable) {
-        AllocationState memory allocation = allocations[account];
-        claimable = _vestedAt(block.timestamp, account) - allocation.claimed;
+        claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
     }
 
     function vestedAt(uint256 when, address account) external view returns (uint256) {
@@ -121,21 +115,21 @@ contract AllocationVesting is DelegatedOps {
 
     function _vestedAt(uint256 when, address recipient) private view returns (uint256 vested) {
         AllocationState memory allocation = allocations[recipient];
+
         uint256 startDate = allocation.startDate;
         uint256 endDate = allocation.endDate;
         uint256 allocationAtStartDate = allocation.allocationAtStartDate;
         uint256 allocationAtEndDate = allocation.allocationAtEndDate;
 
-        if (startDate >= endDate || allocationAtEndDate == 0) return 0;
-
-        // this check is good though
+        // nothing vested yet
         if (when < startDate) return 0;
 
-        uint256 endTime = when >= endDate ? endDate : when;
-        uint256 timeSinceStart = endTime - startDate;
-        uint256 totalVestingTime = endDate - startDate; //cannot be 0
-        vested =
-            (((allocationAtEndDate - allocationAtStartDate) * timeSinceStart) / totalVestingTime) +
-            allocationAtStartDate;
+        // everything vested already
+        if (when > endDate) return allocationAtEndDate;
+
+        uint256 timeSinceStart = when - startDate;
+        uint256 totalVestingDuration = endDate - startDate; // cannot be 0, as per the requirements in the constructor
+        vested = (((allocationAtEndDate - allocationAtStartDate) * timeSinceStart) / totalVestingDuration)
+            + allocationAtStartDate;
     }
 }
