@@ -6,25 +6,8 @@ import {DelegatedOps} from "src/dependencies/DelegatedOps.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @title Vesting contract for team and investors
-/// @author Althea (https://linktr.ee/altheafinance), (https://twitter.com/AltheaFinance)
+/// @author Althea, https://twitter.com/AltheaFinance, https://linktr.ee/altheafinance
 /// @notice Linear vesting contract with allocations for multiple addresses with different cliffs, slopes, amounts etc.
-///
-///                           % &&&&&&&&&&&&&&&&&& #
-///                          & &&&&&&&&&&&&&&&&&& .&%
-///                         &(&&&&&&&&&&&&&&&&&#  &&&&
-///                        %&&&&&&&&&&&&&&&&&&*   .&&&&
-///                      .,&&&&&&&&&&&&&&&&&&       %&&&
-///                     # &&&&&&&&&&&&&&&&&&       %&&&&&.
-///                    % &&&&&&&&&&&&&&&&&&        &&&&&&&#
-///                   &,&&&&&&&&&&&&&&&&&&       (&&&&&&&&&&
-///                  &/&&&&&&&&&&&&&&&&&& ,&&&&&&&&&&&&&&&&&&
-///                 (&&&&&&&&&&&&&&&&&&&   .&&&&&&&&&&&&&&&&&&
-///               ..&&&&&&&&&&&&&&&&&&(      &&&&&&&&&&&&&&&&&&
-///              % &&&&&&&&&&&&&&&&&&*        &&&&&&&&&&&&&&&&&&*
-///             & &&&&&&&&&&&&&&&&&&           &&&&&&&&&&&&&&&&&&#
-///            &,&&&&&&&&&&&&&&&&&&             &&&&&&&&&&&&&&&&&&&
-///           &%&&&&&&&&&&&&&&&&&&               &&&&&&&&&&&&&&&&&&&
-///
 contract AllocationVesting is Ownable, DelegatedOps {
     error NothingToClaim();
     error ZeroAllocationForWallet(address recipient);
@@ -119,19 +102,8 @@ contract AllocationVesting is Ownable, DelegatedOps {
      * @dev Can be delegated
      * @param account Account to claim for
      */
-    function claim(address account) external callerOrDelegated(account) {
-        // only read claimed from storage, not the full struct as it is not needed here
-        uint256 claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
-        if (claimable == 0) revert NothingToClaim();
-
-        // update storage variables
-        allocations[account].claimed += claimable;
-        totalClaimed += claimable;
-
-        // no need to use SafeERC20 here, as THEA token is a trusted token
-        THEA.transfer(account, claimable);
-
-        emit ClaimedVestedTokens(account, claimable);
+    function claim(address account) external virtual callerOrDelegated(account) returns (uint256 claimed) {
+        return _claim(account);
     }
 
     //////////////////////// VIEW ///////////////////////////
@@ -175,5 +147,20 @@ contract AllocationVesting is Ownable, DelegatedOps {
         uint256 totalVestingDuration = endDate - startDate; // cannot be 0, as per the requirements in the constructor
         vested = (((allocationAtEndDate - allocationAtStartDate) * timeSinceStart) / totalVestingDuration)
             + allocationAtStartDate;
+    }
+
+    // the reason for an internal _claim is to be used by the rTHEA allocation vesting as well
+    function _claim(address account) internal virtual returns (uint256 claimable) {
+        // only read claimed from storage, not the full struct as it is not needed here
+        claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
+        if (claimable == 0) revert NothingToClaim();
+
+        // update storage variables
+        allocations[account].claimed += claimable;
+        totalClaimed += claimable;
+
+        // No need to use SafeERC20 here, as THEA token is a trusted token
+        THEA.transfer(account, claimable);
+        emit ClaimedVestedTokens(account, claimable);
     }
 }
