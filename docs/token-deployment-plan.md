@@ -1,6 +1,6 @@
 # THEA token & Vesting contract deployment
-- Date: 1st-2nd april approx
-- Vesting schedules strat on 16th april (TGE)
+- Contracts deployment date: 1st-2nd April approx
+- Vesting schedules Start on 16th April (TGE)
 
 ## Token Mints destinations:
 
@@ -18,21 +18,21 @@
 
 ### [`50_000_000` THEA] to Vault/Multisig (For later emissions):  
 - `50_000_000` 	for later Emissions 		[36 month linear vesting]
-	- These tokens will wait in an Althea Vault until oTHEA logic is deployed. Then, oTHEA redemptions contract will handle the 36 linear vesting. Every oTHEA minted will be redemable for THEA, so oTHEA emissions has to be vesting controller
+	- These tokens will wait in an Althea Vault until oTHEA logic is deployed. Then, oTHEA redemptions contract will handle the 36 linear vestings. Every oTHEA minted will be redeemable for THEA, so oTHEA emissions have to be vesting controller
 
 ## Deployment plan
 - Deploy LinearVesting contract
 - Deploy THEA Token contract
 - `THEA.mintTo()` `50_000_000` THEA to Vault/Multisig for later Emissions
 - `THEA.mintTo()` `15_000_000` THEA to Hercules address for IDO
-- `THEA.mintTo()` `33_375_000` THEA to LinearVesting contract (includes the tokens that will be are available at TGE, so claiming is centralized in our webpage)
+- `THEA.mintTo()` `33_375_000` THEA to LinearVesting contract (includes the tokens that will be available at TGE, so claiming is centralized in our webpage)
 - `THEA.mintTo()` `1_625_000`  THEA to multisig that will add liquidity
 - `LinearVesting.setToken(THEA)`
-- `LinearVesting.setVestingSchedules()`  [start date = 16th april (hour??)]
+- `LinearVesting.setVestingSchedules()`  [start date = 16th April (hour??)]
 - `renounceOwnership()`
 
 ## Missing Info:
-- Time of the day in 16th april when tokens will be claimable from the vesting contract (TGE exact time)
+- Time of the day in 16th April when tokens will be claimable from the vesting contract (TGE exact time)
 - Treasury Multisig address (that will add liquidity, and have the vestings as well)
 - Vault Multisig address (50% supply for later emissions)
 - Addresses and allocations of all vesting schedules:
