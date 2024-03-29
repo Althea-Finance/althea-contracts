@@ -89,7 +89,6 @@ contract AllocationVesting is Ownable, DelegatedOps {
             uint256 endDate = _linearVestings[i].endDate;
 
             if (allocationAtEndDate == 0) revert ZeroAllocationForWallet(recipient);
-
             if (startDate >= endDate || startDate < block.timestamp) revert InvalidVestingPeriod(startDate, endDate);
             if (allocations[recipient].allocationAtEndDate > 0) revert DuplicateAllocation(recipient);
 
@@ -122,12 +121,11 @@ contract AllocationVesting is Ownable, DelegatedOps {
      */
     function claim(address account) external callerOrDelegated(account) {
         // only read claimed from storage, not the full struct as it is not needed here
-        uint256 claimed = allocations[account].claimed;
-        uint256 claimable = _vestedAt(block.timestamp, account) - claimed;
+        uint256 claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
         if (claimable == 0) revert NothingToClaim();
 
         // update storage variables
-        allocations[account].claimed = claimed + claimable;
+        allocations[account].claimed += claimable;
         totalClaimed += claimable;
 
         // no need to use SafeERC20 here, as THEA token is a trusted token
@@ -172,6 +170,7 @@ contract AllocationVesting is Ownable, DelegatedOps {
         // everything vested already
         if (when > endDate) return allocationAtEndDate;
 
+        // linear interpolation between `startDate` and `when`
         uint256 timeSinceStart = when - startDate;
         uint256 totalVestingDuration = endDate - startDate; // cannot be 0, as per the requirements in the constructor
         vested = (((allocationAtEndDate - allocationAtStartDate) * timeSinceStart) / totalVestingDuration)
