@@ -21,13 +21,12 @@
 	- These tokens will wait in an Althea Vault until oTHEA logic is deployed. Then, oTHEA redemptions contract will handle the 36 linear vestings. Every oTHEA minted will be redeemable for THEA, so oTHEA emissions have to be vesting controller
 
 ## Deployment plan
-- Deploy LinearVesting contract
 - Deploy THEA Token contract
+- Deploy LinearVesting contract (with THEA in the constructor)
 - `THEA.mintTo()` `50_000_000` THEA to Vault/Multisig for later Emissions
 - `THEA.mintTo()` `15_000_000` THEA to Hercules address for IDO
 - `THEA.mintTo()` `2_000_000`  THEA to Treasury multisig (to add liquidity + incentives)
 - `THEA.mintTo()` `33_000_000` THEA to LinearVesting contract (includes tokens available at TGE).
-- `LinearVesting.setToken(THEA)`
 - `LinearVesting.setVestingSchedules()`  [start date = 16th April (hour??)]
 - `THEA.renounceOwnership()`
 
