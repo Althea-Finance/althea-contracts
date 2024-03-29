@@ -1,27 +1,42 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.19;
 
-import {ITheaToken} from "../interfaces/ITheaToken.sol";
-import {DelegatedOps} from "../dependencies/DelegatedOps.sol";
+import {ITheaToken} from "src/interfaces/ITheaToken.sol";
+import {DelegatedOps} from "src/dependencies/DelegatedOps.sol";
+import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
-/**
- * @title Vesting contract for team and investors
- * @author Althea
- * @notice Linear vesting contract with allocations for mutliple addresses with different cliffs, slopes, amounts etc.
- */
-contract AllocationVesting is DelegatedOps {
+/// @title Vesting contract for team and investors
+/// @author Althea (https://linktr.ee/altheafinance), (https://twitter.com/AltheaFinance)
+/// @notice Linear vesting contract with allocations for multiple addresses with different cliffs, slopes, amounts etc.
+///
+///                           % &&&&&&&&&&&&&&&&&& #
+///                          & &&&&&&&&&&&&&&&&&& .&%
+///                         &(&&&&&&&&&&&&&&&&&#  &&&&
+///                        %&&&&&&&&&&&&&&&&&&*   .&&&&
+///                      .,&&&&&&&&&&&&&&&&&&       %&&&
+///                     # &&&&&&&&&&&&&&&&&&       %&&&&&.
+///                    % &&&&&&&&&&&&&&&&&&        &&&&&&&#
+///                   &,&&&&&&&&&&&&&&&&&&       (&&&&&&&&&&
+///                  &/&&&&&&&&&&&&&&&&&& ,&&&&&&&&&&&&&&&&&&
+///                 (&&&&&&&&&&&&&&&&&&&   .&&&&&&&&&&&&&&&&&&
+///               ..&&&&&&&&&&&&&&&&&&(      &&&&&&&&&&&&&&&&&&
+///              % &&&&&&&&&&&&&&&&&&*        &&&&&&&&&&&&&&&&&&*
+///             & &&&&&&&&&&&&&&&&&&           &&&&&&&&&&&&&&&&&&#
+///            &,&&&&&&&&&&&&&&&&&&             &&&&&&&&&&&&&&&&&&&
+///           &%&&&&&&&&&&&&&&&&&&               &&&&&&&&&&&&&&&&&&&
+///
+contract AllocationVesting is Ownable, DelegatedOps {
     error NothingToClaim();
-    error ZeroTotalAllocation();
     error ZeroAllocationForWallet(address recipient);
     error DuplicateAllocation(address recipient);
     error InvalidVestingPeriod(uint256 startDate, uint256 endDate);
     error InvalidTotalAllocation(uint256 totalAmount);
+    error VestingSchedulesAlreadyConfigured();
 
-    event VestingClaimed(address indexed account, uint256 amount);
+    event ClaimedVestedTokens(address indexed account, uint256 amount);
 
+    // not so relevant to do struct packing on an L2
     struct LinearVesting {
-        // @audit-info we could use some storage packing here to save gas. But not important
         address recipient;
         uint256 allocationAtEndDate; // in tokens
         uint256 allocationAtStartDate; // in tokens
@@ -30,7 +45,6 @@ contract AllocationVesting is DelegatedOps {
     }
 
     struct AllocationState {
-        // @audit-info we could use some storage packing here to save gas. But not important
         address recipient;
         uint256 claimed; // in tokens
         uint256 allocationAtEndDate; // in tokens
@@ -44,20 +58,29 @@ contract AllocationVesting is DelegatedOps {
 
     // 50% of the THEA's maxSupply is configured in this contract as vested tokens,
     // while the remaining 50% will be allocated to the oTHEA token, which can be redeemed for THEA 1:1
-    ITheaToken public immutable vestingToken;
+    ITheaToken public immutable THEA;
 
     // The sum of all allocations from all linear vestings in this contract. The sum must match 50% of THEA's maxSupply
-    uint256 public immutable totalAllocation;
+    uint256 public totalAllocation;
 
-    constructor(ITheaToken _vestingToken, LinearVesting[] memory _linearVestings) {
-        vestingToken = _vestingToken;
+    // just to keep track of how much THEA has been claimed for accounting. Doesn't include the unclaimed vested tokens
+    uint256 public totalClaimed;
 
-        // @audit make sure this assumption of 50% supply here is correct after talking to Hercules launchpad, in case they do IDO vestings
-        uint256 _totalVestedAllocation = _vestingToken.maxTotalSupply() / 2; // only vest 50% of the total supply, the rest are Emissions
-        if (_totalVestedAllocation == 0) revert ZeroTotalAllocation();
+    // The tokens that have been already allocated to some address
+    bool public vestingSchedulesConfigured;
 
-        uint256 loopEnd = _linearVestings.length;
+    constructor(address _theaAddress) {
+        THEA = ITheaToken(_theaAddress);
+    }
+
+    //////////////////// SETTERS OnlyOwner //////////////////////
+    function setVestingSchedules(LinearVesting[] memory _linearVestings) external onlyOwner {
+        // vesting schedules can only be configured once
+        if (vestingSchedulesConfigured) revert VestingSchedulesAlreadyConfigured();
+        vestingSchedulesConfigured = true;
+
         uint256 totalAmount = 0;
+        uint256 loopEnd = _linearVestings.length;
         for (uint256 i; i < loopEnd; i++) {
             address recipient = _linearVestings[i].recipient;
             uint256 allocationAtEndDate = _linearVestings[i].allocationAtEndDate;
@@ -70,13 +93,22 @@ contract AllocationVesting is DelegatedOps {
             if (startDate >= endDate || startDate < block.timestamp) revert InvalidVestingPeriod(startDate, endDate);
             if (allocations[recipient].allocationAtEndDate > 0) revert DuplicateAllocation(recipient);
 
-            allocations[recipient] =
-                AllocationState(recipient, 0, allocationAtEndDate, allocationAtStartDate, startDate, endDate);
+            allocations[recipient] = AllocationState({
+                recipient: recipient,
+                claimed: 0,
+                allocationAtEndDate: allocationAtEndDate,
+                allocationAtStartDate: allocationAtStartDate,
+                startDate: startDate,
+                endDate: endDate
+            });
 
             totalAmount += allocationAtEndDate;
         }
+
+        // make sure that the entire balance of this contract has been allocated
+        if (THEA.balanceOf(address(this)) != totalAmount) revert InvalidTotalAllocation(totalAmount);
+
         // The sum of all allocations must match exaclty the expected total allocation
-        if (totalAmount != _totalVestedAllocation) revert InvalidTotalAllocation(totalAmount);
         totalAllocation = totalAmount;
     }
 
@@ -89,15 +121,19 @@ contract AllocationVesting is DelegatedOps {
      * @param account Account to claim for
      */
     function claim(address account) external callerOrDelegated(account) {
-        uint256 claimed = allocations[account].claimed; // only read claimed from storage, not the full struct as it is not needed here
+        // only read claimed from storage, not the full struct as it is not needed here
+        uint256 claimed = allocations[account].claimed;
         uint256 claimable = _vestedAt(block.timestamp, account) - claimed;
-
         if (claimable == 0) revert NothingToClaim();
 
+        // update storage variables
         allocations[account].claimed = claimed + claimable;
-        vestingToken.mintTo(account, claimable);
+        totalClaimed += claimable;
 
-        emit VestingClaimed(account, claimable);
+        // no need to use SafeERC20 here, as THEA token is a trusted token
+        THEA.transfer(account, claimable);
+
+        emit ClaimedVestedTokens(account, claimable);
     }
 
     //////////////////////// VIEW ///////////////////////////

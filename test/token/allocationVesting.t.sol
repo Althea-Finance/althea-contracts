@@ -6,7 +6,7 @@ import "src/token/AllocationVesting.sol";
 import "src/interfaces/ITheaToken.sol";
 import "./baseToken.sol";
 
-contract AllocationTest is BaseToken {
+contract AllocationTest is AllocationVestingBaseTest {
     AllocationVesting vestingContract;
     AllocationVesting.LinearVesting[] allAllocations;
 
@@ -62,9 +62,10 @@ contract AllocationTest is BaseToken {
 
     function setUp() public virtual override {
         super.setUp();
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), allAllocations);
+        vestingContract = new AllocationVesting(address(theaToken));
+
         vm.prank(deployer);
-        theaToken.setMinterStatus(address(vestingContract), true);
+        vestingContract.setVestingSchedules(allAllocations);
         vm.warp(1713173058); // 15-04-2024. Start in TGE
     }
 
@@ -108,8 +109,8 @@ contract AllocationTest is BaseToken {
         uint256 allocationAtStartDate = earlySupporter.allocationAtStartDate;
         uint256 allocationAtEndDate = earlySupporter.allocationAtEndDate;
 
-        uint256 claimed = ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) /
-            (endDate - startDate);
+        uint256 claimed =
+            ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) / (endDate - startDate);
         uint256 totalClaimed = allocationAtStartDate + claimed;
         vestingContract.claim(earlySupporter.recipient);
         assertEq(theaToken.balanceOf(earlySupporter.recipient), totalClaimed);
@@ -124,10 +125,8 @@ contract AllocationTest is BaseToken {
         vm.warp(1734998400); //1-12-2024
         vestingContract.claim(earlySupporter.recipient);
 
-        totalClaimed =
-            allocationAtStartDate +
-            ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) /
-            (endDate - startDate);
+        totalClaimed = allocationAtStartDate
+            + ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) / (endDate - startDate);
 
         assertEq(theaToken.balanceOf(earlySupporter.recipient), totalClaimed);
 
@@ -135,10 +134,8 @@ contract AllocationTest is BaseToken {
         vm.warp(1749720258); //12-6-2025
         vestingContract.claim(earlySupporter.recipient);
 
-        totalClaimed =
-            allocationAtStartDate +
-            ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) /
-            (endDate - startDate);
+        totalClaimed = allocationAtStartDate
+            + ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) / (endDate - startDate);
 
         assertEq(theaToken.balanceOf(earlySupporter.recipient), totalClaimed);
         assertEq(totalClaimed, allocationAtEndDate);
@@ -170,9 +167,8 @@ contract AllocationTest is BaseToken {
         uint256 allocationAtStartDate = coreContributor.allocationAtStartDate;
         uint256 allocationAtEndDate = coreContributor.allocationAtEndDate;
 
-        uint256 totalClaimed = allocationAtStartDate +
-            ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) /
-            (endDate - startDate);
+        uint256 totalClaimed = allocationAtStartDate
+            + ((allocationAtEndDate - allocationAtStartDate) * (block.timestamp - startDate)) / (endDate - startDate);
 
         vestingContract.claim(coreContributor.recipient);
         assertEq(theaToken.balanceOf(coreContributor.recipient), totalClaimed);
@@ -207,7 +203,8 @@ contract AllocationTest is BaseToken {
         vm.expectRevert(
             abi.encodeWithSelector(AllocationVesting.DuplicateAllocation.selector, allAllocations[0].recipient)
         );
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), allocations);
+        vestingContract = new AllocationVesting(address(theaToken));
+        vestingContract.setVestingSchedules(allocations);
     }
 
     function testCannotHaveDifferentVestedThanHalfOfMaxSupply() public {
@@ -233,7 +230,8 @@ contract AllocationTest is BaseToken {
 
         uint256 totalAllocation = halfTotalSupply + 10 * 10 ** 18;
         vm.expectRevert(abi.encodeWithSelector(AllocationVesting.InvalidTotalAllocation.selector, totalAllocation));
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), newAllocations);
+        vestingContract = new AllocationVesting(address(theaToken));
+        vestingContract.setVestingSchedules(newAllocations);
     }
 
     function testCannotHaveZeroAllocation() public {
@@ -258,11 +256,11 @@ contract AllocationTest is BaseToken {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AllocationVesting.ZeroAllocationForWallet.selector,
-                0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2
+                AllocationVesting.ZeroAllocationForWallet.selector, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2
             )
         );
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), newAllocations);
+        vestingContract = new AllocationVesting(address(theaToken));
+        vestingContract.setVestingSchedules(newAllocations);
     }
 
     function testInvalidVestingPeriod_sameStartAndEndDate() public {
@@ -277,10 +275,9 @@ contract AllocationTest is BaseToken {
             1718208000 // 12-06-2024
         );
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AllocationVesting.InvalidVestingPeriod.selector, 1718208000, 1718208000)
-        );
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), newAllocations);
+        vm.expectRevert(abi.encodeWithSelector(AllocationVesting.InvalidVestingPeriod.selector, 1718208000, 1718208000));
+        vestingContract = new AllocationVesting(address(theaToken));
+        vestingContract.setVestingSchedules(newAllocations);
     }
 
     function testInvalidVestingPeriod_startAfterEndDate() public {
@@ -295,9 +292,8 @@ contract AllocationTest is BaseToken {
             1718064000 // 11-06-2024
         );
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AllocationVesting.InvalidVestingPeriod.selector, 1718208000, 1718064000)
-        );
-        vestingContract = new AllocationVesting(ITheaToken(address(theaToken)), newAllocations);
+        vm.expectRevert(abi.encodeWithSelector(AllocationVesting.InvalidVestingPeriod.selector, 1718208000, 1718064000));
+        vestingContract = new AllocationVesting(address(theaToken));
+        vestingContract.setVestingSchedules(newAllocations);
     }
 }
