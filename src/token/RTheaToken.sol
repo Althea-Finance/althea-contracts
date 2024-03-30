@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-/// @title Receipt token from Hercules IDO vesting.
+/// @title rTHEA, Receipt token from Hercules IDO vesting.
 /// @author Althea (https://linktr.ee/altheafinance), (https://twitter.com/AltheaFinance)
-/// @notice rThea can be redeemed for THEA in the AllocationVesting contract following the linear vesting schedule.
-///         Even though rThea is transferrable, it has no utility for a different account than the one
-///         the vesting is set to. Therefore transfers are not recommended (besides from IDO platform to participants).
+/// @notice rTHEA can be redeemed for THEA in the RTheaAllocationVesting contract following linear vesting schedules of each participant.
+///         Even though rTHEA is transferrable, it has no utility for an account without scheduled vesting in the RTheaAllocationVesting contract
+///         Therefore rTHEA transfers are not recommended (besides from IDO platform to participants).
 ///
 ///                           % &&&&&&&&&&&&&&&&&& #
 ///                          & &&&&&&&&&&&&&&&&&& .&%
@@ -29,16 +29,17 @@ contract RTheaToken is ERC20 {
     string internal constant _NAME = "Receipt Thea token from IDO";
     string internal constant _SYMBOL = "rTHEA";
 
-    // This is the 60% vested from the 15% of the total supply allocated for the IDO
-    // total supply is 100 million THEA. 15 million goes for the IDO, 60% of that is 9 million, which has vesting
-    uint256 public constant MAX_TOTAL_SUPPLY = 9_000_000 * 1e18; // 9 million THEA
+    /// THEA total supply is 100 million. 15 million is allocated to the IDO,
+    /// and 60% of that (9 million) is released over a vesting period.
+    /// Those 9 million unvested tokens are represented by rTHEA, which can be redeemed for THEA
+    /// according to each individual vesting schedule
+    uint256 public constant MAX_TOTAL_SUPPLY = 9_000_000 * 1e18;
 
-    // The allocation vesting contract will burn rTHEA in exchange for THEA
-    // when user claims THEA from the Rthea Vesting Contract
+    /// This contract handles the redemption of rTHEA in echange of THEA,
+    /// and therefore is the only address allowed to burn rTHEA supply.
     address public immutable rTheaAllocationVesting;
 
     error Unauthorized();
-    error TokenNotTransferrable();
 
     constructor(address _rTHEAallocationVesting) ERC20(_NAME, _SYMBOL) {
         // The deployer will send the tokens to the launchpad platform right after deployment
@@ -46,13 +47,11 @@ contract RTheaToken is ERC20 {
         rTheaAllocationVesting = _rTHEAallocationVesting;
     }
 
-    modifier onlyAllocationVesting() {
+    /// @notice burns rTHEA tokens from an account
+    /// @dev Only the rTheaAllocationVesting contract is allowed to burn tokens, to be redeemed for THEA
+    function burnFrom(address account, uint256 amount) external {
         if (msg.sender != rTheaAllocationVesting) revert Unauthorized();
-        _;
-    }
 
-    // rTHEA tokens burned by the allocation vesting contract when redeeming for THEA tokens
-    function burnFrom(address account, uint256 amount) external onlyAllocationVesting {
         _burn(account, amount);
     }
 }
