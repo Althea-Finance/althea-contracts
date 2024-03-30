@@ -232,4 +232,33 @@ contract rAllocationTest is AllocationVestingBaseTest {
         vm.expectRevert("ERC20: burn amount exceeds balance");
         rTheaAllocationVesting.claim(notRTheaHolderAddr);
     }
+
+    function test_partialClaimingDueToNotEnoughRThea() public {
+        address notRTheaHolderAddr = makeAddr("notRTheaHolder");
+
+        vm.warp(1746403200); // 05-05-2025
+
+        // We give the guy a bit less than he needs
+        vm.prank(deployer);
+        rTheaToken.transfer(notRTheaHolderAddr, 1_800_000 * 10 ** 18);
+
+        vm.startPrank(notRTheaHolderAddr);
+        AllocationVesting.LinearVesting memory notRTheaHolder = rTheaAllocations[2];
+        uint256 notRTheaHolderClaimable = (notRTheaHolder.allocationAtEndDate *
+            (block.timestamp - notRTheaHolder.startDate)) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
+
+        rTheaToken.approve(address(rTheaAllocationVesting), 2_000_000 * 10 ** 18);
+
+        // But he can still claim all claimable at this point
+        rTheaAllocationVesting.claim(notRTheaHolderAddr);
+        assertEq(theaToken.balanceOf(notRTheaHolderAddr), notRTheaHolderClaimable);
+
+        vm.warp(1797033600); // Now we are at the end of NotrThea holder vesting
+
+        rTheaAllocationVesting.claim(notRTheaHolderAddr); // Although he can claim all claimable (2M), he only has 1.8M rThea
+        assertEq(theaToken.balanceOf(notRTheaHolderAddr), 1_800_000 * 10 ** 18);
+
+        vm.expectRevert("ERC20: burn amount exceeds balance");
+        rTheaAllocationVesting.claim(notRTheaHolderAddr);
+    }
 }
