@@ -8,6 +8,10 @@ import "script/sepolia/00constants.sol";
 contract AltheaCoreDeployment is Script {
     TheaToken theaToken;
 
+    uint256 constant LAYER_ZERO_ENDPOINT_ID = 30151;
+    address constant LAYER_ZERO_METIS_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
+    uint8 constant LAYER_ZERO_SHARED_DECIMALS = 6; // standard shared decimals for ERC20s with 18 decimals
+
     function setUp() public virtual {}
 
     function run() public {
