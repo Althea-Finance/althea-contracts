@@ -11,11 +11,15 @@ interface IRTHEA is IERC20 {
 /// @title Vesting contract for IDO participants, redeeming rTHEA tokens
 /// @author Althea, https://twitter.com/AltheaFinance, https://linktr.ee/altheafinance
 /// @notice Linear vesting contract with allocations for multiple addresses with different cliffs, slopes, amounts etc.
-contract RtheaAllocationVesting is AllocationVesting {
-    IRTHEA public immutable rTHEA;
+contract RTheaAllocationVesting is AllocationVesting {
+    IRTHEA public rTHEA;
 
-    constructor(address _theaAddress, address _rTHEA) AllocationVesting(_theaAddress) {
-        rTHEA = IRTHEA(_rTHEA);
+    constructor(address _theaAddress) AllocationVesting(_theaAddress) {}
+
+    function setRtheaAddress(address _rTheaAddress) external onlyOwner {
+        // This is a one-time operation, and it can only be done once
+        require(address(rTHEA) == address(0), "rTHEA address already set");
+        rTHEA = IRTHEA(_rTheaAddress);
     }
 
     // no need to use delegates here, as the rTHEA can be transferred already, and they are IDO participants
@@ -23,6 +27,7 @@ contract RtheaAllocationVesting is AllocationVesting {
     function claim(address account) external override callerOrDelegated(account) returns (uint256) {
         uint256 claimed = _claim(account);
         // If the msg.sender does not have enough rTHEA claimable to burn, the function will revert here
+        // also, if the rTHEA address is not set, this will also revert, so no need to add extra checks
         rTHEA.burnFrom(msg.sender, claimed);
         return claimed;
     }

@@ -6,6 +6,8 @@ import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol"
 /// @title Receipt token from Hercules IDO vesting.
 /// @author Althea (https://linktr.ee/altheafinance), (https://twitter.com/AltheaFinance)
 /// @notice rThea can be redeemed for THEA in the AllocationVesting contract following the linear vesting schedule.
+///         Even though rThea is transferrable, it has no utility for a different account than the one
+///         the vesting is set to. Therefore transfers are not recommended (besides from IDO platform to participants).
 ///
 ///                           % &&&&&&&&&&&&&&&&&& #
 ///                          & &&&&&&&&&&&&&&&&&& .&%
@@ -23,7 +25,7 @@ import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol"
 ///            &,&&&&&&&&&&&&&&&&&&             &&&&&&&&&&&&&&&&&&&
 ///           &%&&&&&&&&&&&&&&&&&&               &&&&&&&&&&&&&&&&&&&
 ///
-contract ReceiptTheaToken is ERC20 {
+contract RTheaToken is ERC20 {
     string internal constant _NAME = "Receipt Thea token from IDO";
     string internal constant _SYMBOL = "rTHEA";
 
@@ -32,31 +34,25 @@ contract ReceiptTheaToken is ERC20 {
     uint256 public constant MAX_TOTAL_SUPPLY = 9_000_000 * 1e18; // 9 million THEA
 
     // The allocation vesting contract will burn rTHEA in exchange for THEA
-    // when user claims THEA from the Vesting Contract
-    address public immutable allocationVesting;
+    // when user claims THEA from the Rthea Vesting Contract
+    address public immutable rTheaAllocationVesting;
 
     error Unauthorized();
     error TokenNotTransferrable();
 
-    constructor(address _allocationVesting) ERC20(_NAME, _SYMBOL) {
+    constructor(address _rTHEAallocationVesting) ERC20(_NAME, _SYMBOL) {
         // The deployer will send the tokens to the launchpad platform right after deployment
         _mint(msg.sender, MAX_TOTAL_SUPPLY);
-        allocationVesting = _allocationVesting;
+        rTheaAllocationVesting = _rTHEAallocationVesting;
     }
 
     modifier onlyAllocationVesting() {
-        if (msg.sender != allocationVesting) revert Unauthorized();
+        if (msg.sender != rTheaAllocationVesting) revert Unauthorized();
         _;
     }
 
     // rTHEA tokens burned by the allocation vesting contract when redeeming for THEA tokens
     function burnFrom(address account, uint256 amount) external onlyAllocationVesting {
         _burn(account, amount);
-    }
-
-    // rTHEA is not transferable, as that would mess the vesting schedules in the vesting contract
-    function _beforeTokenTransfer(address from, address to, uint256 /* amount */ ) internal pure override {
-        // only mints and burns are allowed. Normal transfers are not.
-        if (from != address(0) && to != address(0)) revert TokenNotTransferrable();
     }
 }
