@@ -133,7 +133,7 @@ contract rAllocationTest is AllocationVestingBaseTest {
         // Random wallet cannot claim
         vm.startPrank(makeAddr("randomWallet"));
         rTheaToken.approve(address(rTheaAllocationVesting), rTheaHolderShouldClaim);
-        vm.expectRevert(AllocationVesting.NothingToClaim.selector);
+        vm.expectRevert(RTheaAllocationVesting.NothingToRedeem.selector);
         rTheaAllocationVesting.claim(makeAddr("randomWallet"));
 
         vm.stopPrank();
@@ -152,7 +152,7 @@ contract rAllocationTest is AllocationVestingBaseTest {
 
         // However, without rThea tokens, he cannot claim
         rTheaToken.approve(address(rTheaAllocationVesting), 9_000_000 * 10 ** 18);
-        vm.expectRevert("ERC20: burn amount exceeds balance");
+        vm.expectRevert(RTheaAllocationVesting.NothingToRedeem.selector);
         rTheaAllocationVesting.claim(makeAddr("notRTheaHolder"));
         vm.stopPrank();
 
@@ -229,8 +229,16 @@ contract rAllocationTest is AllocationVestingBaseTest {
         vm.stopPrank();
 
         vm.startPrank(notRTheaHolderAddr);
-        vm.expectRevert("ERC20: burn amount exceeds balance");
         rTheaAllocationVesting.claim(notRTheaHolderAddr);
+        assertEq(theaToken.balanceOf(notRTheaHolderAddr), 1_000_000 * 10 ** 18);
+
+        vm.startPrank(deployer);
+        rTheaToken.transfer(notRTheaHolderAddr, 1_000_000 * 10 ** 18); // the rest
+        vm.stopPrank();
+
+        vm.startPrank(notRTheaHolderAddr);
+        rTheaAllocationVesting.claim(notRTheaHolderAddr);
+        assertEq(theaToken.balanceOf(notRTheaHolderAddr), 2_000_000 * 10 ** 18);
     }
 
     function test_partialClaimingDueToNotEnoughRThea() public {
@@ -258,7 +266,7 @@ contract rAllocationTest is AllocationVestingBaseTest {
         rTheaAllocationVesting.claim(notRTheaHolderAddr); // Although he can claim all claimable (2M), he only has 1.8M rThea
         assertEq(theaToken.balanceOf(notRTheaHolderAddr), 1_800_000 * 10 ** 18);
 
-        vm.expectRevert("ERC20: burn amount exceeds balance");
+        vm.expectRevert(RTheaAllocationVesting.NothingToRedeem.selector);
         rTheaAllocationVesting.claim(notRTheaHolderAddr);
     }
 }

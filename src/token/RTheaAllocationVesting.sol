@@ -14,11 +14,11 @@ interface IrTHEA is IERC20 {
 ///         Claims in this contract can only be performed if the account holds an equal amount of rTHEA than the vested amount to be claimed
 contract RTheaAllocationVesting is AllocationVesting {
     IrTHEA public rTHEA;
-
+    error NothingToRedeem();
     constructor(address _theaAddress) AllocationVesting(_theaAddress) {}
 
     /// @notice setter for the rTHEA token address
-    /// @dev It can only be set once, and only by the owner. 
+    /// @dev It can only be set once, and only by the owner.
     function setRtheaAddress(address _rTheaAddress) external onlyOwner {
         require(address(rTHEA) == address(0), "rTHEA address already set");
         rTHEA = IrTHEA(_rTheaAddress);
@@ -31,6 +31,7 @@ contract RTheaAllocationVesting is AllocationVesting {
     /// @param account Account to claim for
     function claim(address account) external override callerOrDelegated(account) returns (uint256) {
         uint256 accountRtheaBalance = rTHEA.balanceOf(account);
+        if (accountRtheaBalance == 0) revert NothingToRedeem();
         // the maxClaimable is the balance of rTHEA of account, which is the max rTHEA that can be burned
         uint256 claimed = _claim(account, accountRtheaBalance);
         rTHEA.burnFrom(account, claimed);
