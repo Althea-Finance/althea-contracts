@@ -4,9 +4,9 @@ pragma solidity 0.8.19;
 import {OFTV2} from "lib/layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 
-/// @title Althea Governance Token
+/// @title THEA, Althea Governance Token
 /// @author Althea (https://linktr.ee/altheafinance), (https://twitter.com/AltheaFinance)
-/// @notice Given as an incentive for users of the protocol.
+/// @notice Token given as an incentive for users of the protocol.
 ///
 ///                           % &&&&&&&&&&&&&&&&&& #
 ///                          & &&&&&&&&&&&&&&&&&& .&%
@@ -39,7 +39,7 @@ contract TheaToken is Ownable, OFTV2 {
 
     //////////////////////////// EXTERNAL //////////////////////////////
 
-    // Ownership will be renounced right after deployment
+    /// @dev Ownership will be renounced right after deployment
     function mintTo(address to, uint256 amount) external onlyOwner {
         if (totalSupply() + amount > MAX_TOTAL_SUPPLY) revert MaxSupplyExceeded();
         _mint(to, amount);
