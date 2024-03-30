@@ -38,7 +38,6 @@
 - `THEA.mintTo()` `33_000_000` THEA `AllocationVesting`
 - `THEA.mintTo()` `50_000_000` THEA to Vault/Multisig for later Emissions
 - `THEA.mintTo()` `2_000_000`  THEA to Treasury multisig (to add liquidity + incentives)
-- `THEA.mintTo()` `33_000_000` THEA to LinearVesting contract (includes tokens available at TGE).
 - `LinearVesting.setVestingSchedules()`  [start date = 16th April (hour??)]
 - `THEA.renounceOwnership()`
 - `THEA.renounceOwnership()`
