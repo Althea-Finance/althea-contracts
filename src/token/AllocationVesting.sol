@@ -109,7 +109,8 @@ contract AllocationVesting is Ownable, DelegatedOps {
     /// @dev Can be delegated
     /// @param account Account to claim for
     function claim(address account) external virtual callerOrDelegated(account) returns (uint256 claimed) {
-        return _claim(account);
+        // The type(uint256).max is set because there is no restrictions on msg.senders balance before the claim
+        return _claim(account, type(uint256).max);
     }
 
     //////////////////////// VIEW ///////////////////////////
@@ -130,11 +131,19 @@ contract AllocationVesting is Ownable, DelegatedOps {
 
     //////////////////////// INTERNAL ///////////////////////////
 
-    // the reason for an internal `_claim()` is because this contract is inherited by RTheaAllocationVesting
-    function _claim(address account) internal virtual returns (uint256 claimable) {
+    /// @param account The account to claim on behalf of
+    /// @param maxClaimable the max amount that can be claimed, imposed by parent implementations, like rTHEA balance of msg.sender
+    /// @dev the reason for an internal `_claim()` is because this contract is inherited by RTheaAllocationVesting
+    function _claim(address account, uint256 maxClaimable) internal virtual returns (uint256 claimable) {
         claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
         if (claimable == 0) revert NothingToClaim();
+        if (claimable > maxClaimable) claimable = maxClaimable; 
+        // We dont' want the claim to revert if the contract doesn't have enough THEA. 
+        // Instead, allow to claim what is there
+        uint256 theaBalance = THEA.balanceOf(address(this));
+        if (claimable > theaBalance) claimable = theaBalance;
 
+        // only update storage and transfer tokens with the updated claimable, taking into account the restrictions
         allocations[account].claimed += claimable;
         totalClaimed += claimable;
 

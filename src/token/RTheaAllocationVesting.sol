@@ -30,9 +30,10 @@ contract RTheaAllocationVesting is AllocationVesting {
     ///      The claim will revert if rTHEA == address(0) because of not being set yet
     /// @param account Account to claim for
     function claim(address account) external override callerOrDelegated(account) returns (uint256) {
-        // _claim is an internal function inherited from RTheaAllocationVesting
-        uint256 claimed = _claim(account);
-        rTHEA.burnFrom(msg.sender, claimed);
+        uint256 accountRtheaBalance = rTHEA.balanceOf(account);
+        // the maxClaimable is the balance of rTHEA of account, which is the max rTHEA that can be burned
+        uint256 claimed = _claim(account, accountRtheaBalance);
+        rTHEA.burnFrom(account, claimed);
         return claimed;
     }
 }
