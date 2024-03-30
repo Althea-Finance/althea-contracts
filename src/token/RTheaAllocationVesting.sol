@@ -14,7 +14,9 @@ interface IrTHEA is IERC20 {
 ///         Claims in this contract can only be performed if the account holds an equal amount of rTHEA than the vested amount to be claimed
 contract RTheaAllocationVesting is AllocationVesting {
     IrTHEA public rTHEA;
+
     error NothingToRedeem();
+
     constructor(address _theaAddress) AllocationVesting(_theaAddress) {}
 
     /// @notice setter for the rTHEA token address

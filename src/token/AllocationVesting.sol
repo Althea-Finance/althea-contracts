@@ -137,8 +137,8 @@ contract AllocationVesting is Ownable, DelegatedOps {
     function _claim(address account, uint256 maxClaimable) internal virtual returns (uint256 claimable) {
         claimable = _vestedAt(block.timestamp, account) - allocations[account].claimed;
         if (claimable == 0) revert NothingToClaim();
-        if (claimable > maxClaimable) claimable = maxClaimable; 
-        // We dont' want the claim to revert if the contract doesn't have enough THEA. 
+        if (claimable > maxClaimable) claimable = maxClaimable;
+        // We dont' want the claim to revert if the contract doesn't have enough THEA.
         // Instead, allow to claim what is there
         uint256 theaBalance = THEA.balanceOf(address(this));
         if (claimable > theaBalance) claimable = theaBalance;

@@ -110,8 +110,8 @@ contract rAllocationTest is AllocationVestingBaseTest {
 
         AllocationVesting.LinearVesting memory rTheaHolder1 = rTheaAllocations[0];
 
-        uint256 rTheaHolderShouldClaim = (rTheaHolder1.allocationAtEndDate *
-            (block.timestamp - rTheaHolder1.startDate)) / (rTheaHolder1.endDate - rTheaHolder1.startDate);
+        uint256 rTheaHolderShouldClaim = (rTheaHolder1.allocationAtEndDate * (block.timestamp - rTheaHolder1.startDate))
+            / (rTheaHolder1.endDate - rTheaHolder1.startDate);
 
         uint256 theaBalanceBefore = theaToken.balanceOf(makeAddr("rTheaHolder1"));
         assertEq(theaBalanceBefore, 0);
@@ -144,8 +144,9 @@ contract rAllocationTest is AllocationVestingBaseTest {
 
         vm.warp(1746403300); //05-05-2025
         AllocationVesting.LinearVesting memory notRTheaHolder = rTheaAllocations[2];
-        uint256 notRTheaHolderClaimable = (notRTheaHolder.allocationAtEndDate *
-            (block.timestamp - notRTheaHolder.startDate)) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
+        uint256 notRTheaHolderClaimable = (
+            notRTheaHolder.allocationAtEndDate * (block.timestamp - notRTheaHolder.startDate)
+        ) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
 
         // Make sure the guy has the correct claimable
         assertEq(rTheaAllocationVesting.claimableNow(makeAddr("notRTheaHolder")), notRTheaHolderClaimable);
@@ -214,8 +215,9 @@ contract rAllocationTest is AllocationVestingBaseTest {
         vm.warp(1797033600); // End of NotrThea holder vesting
 
         AllocationVesting.LinearVesting memory notRTheaHolder = rTheaAllocations[2];
-        uint256 notRTheaHolderClaimable = (notRTheaHolder.allocationAtEndDate *
-            (block.timestamp - notRTheaHolder.startDate)) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
+        uint256 notRTheaHolderClaimable = (
+            notRTheaHolder.allocationAtEndDate * (block.timestamp - notRTheaHolder.startDate)
+        ) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
 
         // Make sure the guy has the correct claimable
         assertEq(rTheaAllocationVesting.claimableNow(notRTheaHolderAddr), notRTheaHolderClaimable);
@@ -252,8 +254,9 @@ contract rAllocationTest is AllocationVestingBaseTest {
 
         vm.startPrank(notRTheaHolderAddr);
         AllocationVesting.LinearVesting memory notRTheaHolder = rTheaAllocations[2];
-        uint256 notRTheaHolderClaimable = (notRTheaHolder.allocationAtEndDate *
-            (block.timestamp - notRTheaHolder.startDate)) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
+        uint256 notRTheaHolderClaimable = (
+            notRTheaHolder.allocationAtEndDate * (block.timestamp - notRTheaHolder.startDate)
+        ) / (notRTheaHolder.endDate - notRTheaHolder.startDate);
 
         rTheaToken.approve(address(rTheaAllocationVesting), 2_000_000 * 10 ** 18);
 
