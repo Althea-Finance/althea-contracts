@@ -14,15 +14,18 @@ contract AltheaTokenDeployment is Script {
     AllocationVesting allocationVesting;
     RTheaAllocationVesting rTheaAllocationVesting;
 
+    // layer zero configs for THEA token
     uint256 constant LAYER_ZERO_ENDPOINT_ID = 30151;
     address constant LAYER_ZERO_METIS_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
     uint8 constant LAYER_ZERO_SHARED_DECIMALS = 6; // standard shared decimals for ERC20s with 18 decimals
 
-    address constant HERCULES_IDO_ADDRESS = 0x1a44076050125825900e736c501f859c50fE728c;
+    // Hercules IDO configuration
+    address constant HERCULES_IDO_ADDRESS = 0x4e9fFEb0272703acF643037e04FdcF86079fCb80;  // hercules address 
     uint256 constant HERCULES_IDO_THEA_ALLOCATION = 6_000_000 * 1e18;
     uint256 constant HERCULES_IDO_RTHEA_ALLOCATION = 9_000_000 * 1e18;
     uint256 constant THEA_TO_RTHEA_ALLOCATION_VESTING = 9_000_000 * 1e18;
 
+    // other vestings / destinations
     uint256 constant THEA_TO_ALLOCATION_VESTING = 33_000_000 * 1e18;
 
     address constant VAULT_MULTISIG_ADDRESS = 0x03c04ff5864EC24870Cd7a667CcC2F0b7aEE72e6;
