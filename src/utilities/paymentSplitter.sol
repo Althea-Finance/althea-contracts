@@ -13,6 +13,7 @@ contract AltheaPaymentSplitter is ReentrancyGuard {
 
     // shares of each payee
     mapping(address => uint256) public shares;
+    // If a new payee is needed, a new splitter contract needs to be deployed
     address[] public payees;
 
     // total shares among which to distribute payments
@@ -21,6 +22,7 @@ contract AltheaPaymentSplitter is ReentrancyGuard {
     // EVENTS
     event ShareAllocated(address _payee, uint256 _share);
     event NativeTokensSent(address _payee, uint256 amount);
+    event NativeTokenSkippedToContract(address _payeeContract, uint256 amount);
 
     // ERRORs
     error LengthsMustMatch();
@@ -75,8 +77,17 @@ contract AltheaPaymentSplitter is ReentrancyGuard {
     /// @dev ignores output from tranfers, to avoid all the funds stuck in contract if one transfer fails
     function _handlePayment(address token, uint256 amount, address to) internal {
         if (token == address(0)) {
-            payable(to).transfer(amount); // avoid reentrancy. If gas configs chagnes, a new splitter contract can be redeployed
-            emit NativeTokensSent(to, amount);
+            // if payee is a contract, skip it to avoid reentrancy or DoS attacks
+            if (address(to).code.length > 0) {
+                emit NativeTokenSkippedToContract(to, amount);
+            } else {
+                // intentionally using send() here, as we don't want the call 
+                // to revert DoSing the other payees. This payee losses his payement.
+                // If an EIP changed the gas configs, a new splitter contract can be deployed
+                (bool success) = payable(to).send(amount);
+                {success;} // just to silence warnings
+                emit NativeTokensSent(to, amount);
+            }
         } else {
             // ERC20 has its own event already
             IERC20(token).safeTransfer(to, amount);
