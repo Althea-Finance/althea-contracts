@@ -27,21 +27,23 @@
 
 
 ## Deployment plan
-- Deploy THEA Token contract
-- Deploy AllocationVesting contract (needs THEA address)
-- Deploy RtheaAllocationVesting contract (needs THEA address)
-- Deploy rTHEA Token contract (needs RtheaAllocationVesting address)
-- `RtheaAllocationVesting.setRtheaTokenAddress()` (needs rTHEA address)
-- `rTHEA.mintTo()` `9_000_000` rTHEA to Hercules address for IDO
-- `THEA.mintTo()` `9_000_000` THEA `RtheaAllocationVesting`
+First phase (soon after IDO 1st april):
+- Deploy `THEA` Token contract
+- Deploy `AllocationVesting` contract (needs `THEA` address)
+- Deploy `RtheaAllocationVesting` contract (needs `THEA` address)
+- Deploy `rTHEA` Token contract (needs `RtheaAllocationVesting` address)
+- `RtheaAllocationVesting.setRtheaTokenAddress()` (needs `rTHEA` address)
+- Mint and transfer `9_000_000` rTHEA to Hercules address for IDO
 - `THEA.mintTo()` `6_000_000` THEA to Hercules address for IDO
+  
+Second phase (before TGE, 15th april, or when allocations are final)
+- `THEA.mintTo()` `9_000_000` THEA `RtheaAllocationVesting`
 - `THEA.mintTo()` `33_000_000` THEA `AllocationVesting`
 - `THEA.mintTo()` `50_000_000` THEA to Vault/Multisig for later Emissions
 - `THEA.mintTo()` `2_000_000`  THEA to Treasury multisig (to add liquidity + incentives)
-- `LinearVesting.setVestingSchedules()`  [start date = 16th April (hour??)]
-- `THEA.renounceOwnership()`
-- `THEA.renounceOwnership()`
-- `THEA.renounceOwnership()`
+- `AllocationVestings.setVestingSchedules()`  [start date = 16th April (hour??)]
+- `RTheaAllocationVestings.setVestingSchedules()`  [start date = 16th April (hour??)]
+- Renounce all relevant contract ownerships
 
 ## Missing Info:
 - Time of the day in 16th April when tokens will be claimable from the vesting contract (TGE exact time)
