@@ -8,30 +8,22 @@ import "../dependencies/SystemStart.sol";
 import "../interfaces/ITokenLocker.sol";
 
 /**
-    @title Prisma DAO Admin Voter
-    @notice Primary ownership contract for all Prisma contracts. Allows executing
-            arbitrary function calls only after a required percentage of PRISMA
-            lockers have signalled in favor of performing the action.
+ * @title Prisma DAO Admin Voter
+ *     @notice Primary ownership contract for all Prisma contracts. Allows executing
+ *             arbitrary function calls only after a required percentage of PRISMA
+ *             lockers have signalled in favor of performing the action.
  */
 contract AdminVoting is DelegatedOps, SystemStart {
     using Address for address;
 
     event ProposalCreated(
-        address indexed account,
-        uint256 proposalId,
-        Action[] payload,
-        uint256 week,
-        uint256 requiredWeight
+        address indexed account, uint256 proposalId, Action[] payload, uint256 week, uint256 requiredWeight
     );
     event ProposalHasMetQuorum(uint256 id, uint256 canExecuteAfter);
     event ProposalExecuted(uint256 proposalId);
     event ProposalCancelled(uint256 proposalId);
     event VoteCast(
-        address indexed account,
-        uint256 indexed id,
-        uint256 weight,
-        uint256 proposalCurrentWeight,
-        bool hasPassed
+        address indexed account, uint256 indexed id, uint256 weight, uint256 proposalCurrentWeight, bool hasPassed
     );
     event ProposalCreationMinPctSet(uint256 weight);
     event ProposalPassingPctSet(uint256 pct);
@@ -58,7 +50,7 @@ contract AdminVoting is DelegatedOps, SystemStart {
     uint256 public constant SET_GUARDIAN_PASSING_PCT = 5010;
 
     ITokenLocker public immutable tokenLocker;
-    IPrismaCore public immutable prismaCore;
+    IAltheaCore public immutable altheaCore;
 
     Proposal[] proposalData;
     mapping(uint256 => Action[]) proposalPayloads;
@@ -76,14 +68,14 @@ contract AdminVoting is DelegatedOps, SystemStart {
     uint256 public passingPct;
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         ITokenLocker _tokenLocker,
         uint256 _minCreateProposalPct,
         uint256 _passingPct,
         uint256 _bootstrapFinish
-    ) SystemStart(_prismaCore) {
+    ) SystemStart(_altheaCore) {
         tokenLocker = _tokenLocker;
-        prismaCore = IPrismaCore(_prismaCore);
+        altheaCore = IAltheaCore(_altheaCore);
 
         minCreateProposalPct = _minCreateProposalPct;
         passingPct = _passingPct;
@@ -92,7 +84,7 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice The total number of votes created
+     * @notice The total number of votes created
      */
     function getProposalCount() external view returns (uint256) {
         return proposalData.length;
@@ -108,11 +100,9 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Gets information on a specific proposal
+     * @notice Gets information on a specific proposal
      */
-    function getProposalData(
-        uint256 id
-    )
+    function getProposalData(uint256 id)
         external
         view
         returns (
@@ -128,10 +118,11 @@ contract AdminVoting is DelegatedOps, SystemStart {
     {
         Proposal memory proposal = proposalData[id];
         payload = proposalPayloads[id];
-        canExecute = (!proposal.processed &&
-            proposal.currentWeight >= proposal.requiredWeight &&
-            proposal.canExecuteAfter < block.timestamp &&
-            proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp);
+        canExecute = (
+            !proposal.processed && proposal.currentWeight >= proposal.requiredWeight
+                && proposal.canExecuteAfter < block.timestamp
+                && proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp
+        );
 
         return (
             proposal.week,
@@ -146,9 +137,9 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Create a new proposal
-        @param payload Tuple of [(target address, calldata), ... ] to be
-                       executed if the proposal is passed.
+     * @notice Create a new proposal
+     *     @param payload Tuple of [(target address, calldata), ... ] to be
+     *                    executed if the proposal is passed.
      */
     function createNewProposal(address account, Action[] calldata payload) external callerOrDelegated(account) {
         require(payload.length > 0, "Empty payload");
@@ -166,14 +157,16 @@ contract AdminVoting is DelegatedOps, SystemStart {
         uint256 accountWeight = tokenLocker.getAccountWeightAt(account, week);
         require(accountWeight >= minCreateProposalWeight(), "Not enough weight to propose");
 
-        // if the only action is `prismaCore.setGuardian()`, use
+        // if the only action is `altheaCore.setGuardian()`, use
         // `SET_GUARDIAN_PASSING_PCT` instead of `passingPct`
         uint256 _passingPct;
         bool isSetGuardianPayload = _isSetGuardianPayload(payload.length, payload[0]);
         if (isSetGuardianPayload) {
             require(block.timestamp > BOOTSTRAP_FINISH, "Cannot change guardian during bootstrap");
             _passingPct = SET_GUARDIAN_PASSING_PCT;
-        } else _passingPct = passingPct;
+        } else {
+            _passingPct = passingPct;
+        }
 
         uint256 totalWeight = tokenLocker.getTotalWeightAt(week);
         uint40 requiredWeight = uint40((totalWeight * _passingPct) / MAX_PCT);
@@ -198,12 +191,12 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Vote in favor of a proposal
-        @dev Each account can vote once per proposal
-        @param id Proposal ID
-        @param weight Weight to allocate to this action. If set to zero, the full available
-                      account weight is used. Integrating protocols may wish to use partial
-                      weight to reflect partial support from their own users.
+     * @notice Vote in favor of a proposal
+     *     @dev Each account can vote once per proposal
+     *     @param id Proposal ID
+     *     @param weight Weight to allocate to this action. If set to zero, the full available
+     *                   account weight is used. Integrating protocols may wish to use partial
+     *                   weight to reflect partial support from their own users.
      */
     function voteForProposal(address account, uint256 id, uint256 weight) external callerOrDelegated(account) {
         require(id < proposalData.length, "Invalid ID");
@@ -236,14 +229,14 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Cancels a pending proposal
-        @dev Can only be called by the guardian to avoid malicious proposals
-             The guardian cannot cancel a proposal where the only action is
-             changing the guardian.
-        @param id Proposal ID
+     * @notice Cancels a pending proposal
+     *     @dev Can only be called by the guardian to avoid malicious proposals
+     *          The guardian cannot cancel a proposal where the only action is
+     *          changing the guardian.
+     *     @param id Proposal ID
      */
     function cancelProposal(uint256 id) external {
-        require(msg.sender == prismaCore.guardian(), "Only guardian can cancel proposals");
+        require(msg.sender == altheaCore.guardian(), "Only guardian can cancel proposals");
         require(id < proposalData.length, "Invalid ID");
 
         Action[] storage payload = proposalPayloads[id];
@@ -253,10 +246,10 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Execute a proposal's payload
-        @dev Can only be called if the proposal has received sufficient vote weight,
-             and has been active for at least `MIN_TIME_TO_EXECUTION`
-        @param id Proposal ID
+     * @notice Execute a proposal's payload
+     *     @dev Can only be called if the proposal has received sufficient vote weight,
+     *          and has been active for at least `MIN_TIME_TO_EXECUTION`
+     *     @param id Proposal ID
      */
     function executeProposal(uint256 id) external {
         require(id < proposalData.length, "Invalid ID");
@@ -281,9 +274,9 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Set the minimum % of the total weight required to create a new proposal
-        @dev Only callable via a passing proposal that includes a call
-             to this contract and function within it's payload
+     * @notice Set the minimum % of the total weight required to create a new proposal
+     *     @dev Only callable via a passing proposal that includes a call
+     *          to this contract and function within it's payload
      */
     function setMinCreateProposalPct(uint256 pct) external returns (bool) {
         require(msg.sender == address(this), "Only callable via proposal");
@@ -294,10 +287,10 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @notice Set the required % of the total weight that must vote
-                for a proposal prior to being able to execute it
-        @dev Only callable via a passing proposal that includes a call
-             to this contract and function within it's payload
+     * @notice Set the required % of the total weight that must vote
+     *             for a proposal prior to being able to execute it
+     *     @dev Only callable via a passing proposal that includes a call
+     *          to this contract and function within it's payload
      */
     function setPassingPct(uint256 pct) external returns (bool) {
         require(msg.sender == address(this), "Only callable via proposal");
@@ -309,22 +302,22 @@ contract AdminVoting is DelegatedOps, SystemStart {
     }
 
     /**
-        @dev Unguarded method to allow accepting ownership transfer of `PrismaCore`
-             at the end of the deployment sequence
+     * @dev Unguarded method to allow accepting ownership transfer of `AltheaCore`
+     *          at the end of the deployment sequence
      */
     function acceptTransferOwnership() external {
-        prismaCore.acceptTransferOwnership();
+        altheaCore.acceptTransferOwnership();
     }
 
     function _isSetGuardianPayload(uint256 payloadLength, Action memory action) internal view returns (bool) {
-        if (payloadLength == 1 && action.target == address(prismaCore)) {
+        if (payloadLength == 1 && action.target == address(altheaCore)) {
             bytes memory data = action.data;
             // Extract the call sig from payload data
             bytes4 sig;
             assembly {
                 sig := mload(add(data, 0x20))
             }
-            return sig == IPrismaCore.setGuardian.selector;
+            return sig == IAltheaCore.setGuardian.selector;
         }
         return false;
     }

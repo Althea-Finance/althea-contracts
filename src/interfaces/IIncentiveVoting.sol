@@ -14,13 +14,14 @@ interface IIncentiveVoting {
     }
 
     event AccountWeightRegistered(
-        address indexed account,
-        uint256 indexed week,
-        uint256 frozenBalance,
-        LockData[] registeredLockData
+        address indexed account, uint256 indexed week, uint256 frozenBalance, LockData[] registeredLockData
     );
     event ClearedVotes(address indexed account, uint256 indexed week);
     event NewVotes(address indexed account, uint256 indexed week, Vote[] newVotes, uint256 totalPointsUsed);
+
+    function setAltheaVaultAddress(address _vaultAddress) external;
+
+    function setTokenLocker(address _locker) external;
 
     function clearRegisteredWeight(address account) external returns (bool);
 
@@ -50,9 +51,10 @@ interface IIncentiveVoting {
 
     function getAccountCurrentVotes(address account) external view returns (Vote[] memory votes);
 
-    function getAccountRegisteredLocks(
-        address account
-    ) external view returns (uint256 frozenWeight, LockData[] memory lockData);
+    function getAccountRegisteredLocks(address account)
+        external
+        view
+        returns (uint256 frozenWeight, LockData[] memory lockData);
 
     function getReceiverWeight(uint256 idx) external view returns (uint256);
 

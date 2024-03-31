@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../dependencies/AltheaOwnable.sol";
 import "../../interfaces/ICurveProxy.sol";
 
 interface ICurveDepositToken {
@@ -15,10 +15,10 @@ interface ICurveDepositToken {
 }
 
 /**
-    @notice Prisma Curve Factory
-    @title Deploys clones of `CurveDepositToken` as directed by the Prisma DAO
+ * @notice Prisma Curve Factory
+ *     @title Deploys clones of `CurveDepositToken` as directed by the Prisma DAO
  */
-contract CurveFactory is PrismaOwnable {
+contract CurveFactory is AltheaOwnable {
     using Clones for address;
 
     ICurveProxy public immutable curveProxy;
@@ -30,16 +30,16 @@ contract CurveFactory is PrismaOwnable {
     event ImplementationSet(address depositTokenImpl);
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         ICurveProxy _curveProxy,
         address _depositTokenImpl,
         address[] memory _existingDeployments
-    ) PrismaOwnable(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) {
         curveProxy = _curveProxy;
         depositTokenImpl = _depositTokenImpl;
         emit ImplementationSet(_depositTokenImpl);
 
-        for (uint i = 0; i < _existingDeployments.length; i++) {
+        for (uint256 i = 0; i < _existingDeployments.length; i++) {
             address depositToken = _existingDeployments[i];
             address lpToken = ICurveDepositToken(depositToken).lpToken();
             address gauge = ICurveDepositToken(depositToken).gauge();
@@ -49,8 +49,8 @@ contract CurveFactory is PrismaOwnable {
     }
 
     /**
-        @dev After calling this function, the owner should also call `Vault.registerReceiver`
-             to enable PRISMA emissions on the newly deployed `CurveDepositToken`
+     * @dev After calling this function, the owner should also call `Vault.registerReceiver`
+     *          to enable PRISMA emissions on the newly deployed `CurveDepositToken`
      */
     function deployNewInstance(address gauge) external onlyOwner {
         // no duplicate deployments because deposits and rewards must route via `CurveProxy`

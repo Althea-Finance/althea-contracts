@@ -14,9 +14,18 @@ docs/
 .env
 
 lib/
+/lib/
+
+.xml
+.idea/vcs.xml
 
 .idea/
-.idea/vcs.xml
-.xml
+*.idea
+
+.prettierrc
+
+*.idea
 
 .vscode/
+
+tmp/

@@ -7,6 +7,7 @@ interface ITokenLocker {
         uint256 amount;
         uint256 weeksToUnlock;
     }
+
     struct ExtendLockData {
         uint256 amount;
         uint256 currentWeeks;
@@ -20,6 +21,8 @@ interface ITokenLocker {
     event LocksFrozen(address indexed account, uint256 amount);
     event LocksUnfrozen(address indexed account, uint256 amount);
     event LocksWithdrawn(address indexed account, uint256 withdrawn, uint256 penalty);
+
+    function setIncentiveVotingAddress(address _voterAddress) external;
 
     function extendLock(uint256 _amount, uint256 _weeks, uint256 _newWeeks) external returns (bool);
 
@@ -47,10 +50,10 @@ interface ITokenLocker {
 
     function PRISMA_CORE() external view returns (address);
 
-    function getAccountActiveLocks(
-        address account,
-        uint256 minWeeks
-    ) external view returns (LockData[] memory lockData, uint256 frozenAmount);
+    function getAccountActiveLocks(address account, uint256 minWeeks)
+        external
+        view
+        returns (LockData[] memory lockData, uint256 frozenAmount);
 
     function getAccountBalances(address account) external view returns (uint256 locked, uint256 unlocked);
 
@@ -64,10 +67,10 @@ interface ITokenLocker {
 
     function getWeek() external view returns (uint256 week);
 
-    function getWithdrawWithPenaltyAmounts(
-        address account,
-        uint256 amountToWithdraw
-    ) external view returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid);
+    function getWithdrawWithPenaltyAmounts(address account, uint256 amountToWithdraw)
+        external
+        view
+        returns (uint256 amountWithdrawn, uint256 penaltyAmountPaid);
 
     function guardian() external view returns (address);
 
@@ -81,7 +84,7 @@ interface ITokenLocker {
 
     function penaltyWithdrawalsEnabled() external view returns (bool);
 
-    function prismaCore() external view returns (address);
+    function altheaCore() external view returns (address);
 
     function totalDecayRate() external view returns (uint32);
 

@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../interfaces/ITroveManager.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IDebtToken.sol";
@@ -12,18 +12,18 @@ import "../interfaces/IStabilityPool.sol";
 import "../interfaces/ILiquidationManager.sol";
 
 /**
-    @title Prisma Trove Factory
-    @notice Deploys cloned pairs of `TroveManager` and `SortedTroves` in order to
-            add new collateral types within the system.
+ * @title Prisma Trove Factory
+ *     @notice Deploys cloned pairs of `TroveManager` and `SortedTroves` in order to
+ *             add new collateral types within the system.
  */
-contract Factory is PrismaOwnable {
+contract Factory is AltheaOwnable {
     using Clones for address;
 
     // fixed single-deployment contracts
-    IDebtToken public immutable debtToken;
-    IStabilityPool public immutable stabilityPool;
-    ILiquidationManager public immutable liquidationManager;
-    IBorrowerOperations public immutable borrowerOperations;
+    IDebtToken public debtToken;
+    IStabilityPool public stabilityPool;
+    ILiquidationManager public liquidationManager;
+    IBorrowerOperations public borrowerOperations;
 
     // implementation contracts, redeployed each time via clone proxy
     address public sortedTrovesImpl;
@@ -46,14 +46,14 @@ contract Factory is PrismaOwnable {
     event NewDeployment(address collateral, address priceFeed, address troveManager, address sortedTroves);
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         IDebtToken _debtToken,
         IStabilityPool _stabilityPool,
         IBorrowerOperations _borrowerOperations,
         address _sortedTroves,
         address _troveManager,
         ILiquidationManager _liquidationManager
-    ) PrismaOwnable(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) {
         debtToken = _debtToken;
         stabilityPool = _stabilityPool;
         borrowerOperations = _borrowerOperations;
@@ -63,24 +63,54 @@ contract Factory is PrismaOwnable {
         liquidationManager = _liquidationManager;
     }
 
+    function setLiquidationManagerAddress(address _liquidationManagerAddress) external onlyOwner {
+        require(_liquidationManagerAddress != address(0), "Invalid address");
+        require(address(liquidationManager) == address(0), "liquidationManager address already set");
+        liquidationManager = ILiquidationManager(_liquidationManagerAddress);
+    }
+
+    function setStabilityPoolAddress(address _stabilityPoolAddress) external onlyOwner {
+        require(_stabilityPoolAddress != address(0), "Invalid address");
+        require(address(stabilityPool) == address(0), "stabilityPool address already set");
+        stabilityPool = IStabilityPool(_stabilityPoolAddress);
+    }
+
+    function setTroveManagerAddress(address _troveManagerAddress) external onlyOwner {
+        require(_troveManagerAddress != address(0), "Factory: invalid debt token");
+        require(troveManagerImpl == address(0), "Factory: troveManagerImpl already set");
+        troveManagerImpl = _troveManagerAddress;
+    }
+
+    function setDebtTokenAddress(address _debtTokenAddress) external onlyOwner {
+        require(_debtTokenAddress != address(0), "Factory: invalid debt token");
+        require(address(debtToken) == address(0), "Factory: debt token already set");
+        debtToken = IDebtToken(_debtTokenAddress);
+    }
+
+    function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external onlyOwner {
+        require(_borrowerOperationsAddress != address(0), "Factory: invalid borrower operations");
+        require(address(borrowerOperations) == address(0), "Factory: borrower operations already set");
+        borrowerOperations = IBorrowerOperations(_borrowerOperationsAddress);
+    }
+
     function troveManagerCount() external view returns (uint256) {
         return troveManagers.length;
     }
 
     /**
-        @notice Deploy new instances of `TroveManager` and `SortedTroves`, adding
-                a new collateral type to the system.
-        @dev * When using the default `PriceFeed`, ensure it is configured correctly
-               prior to calling this function.
-             * After calling this function, the owner should also call `Vault.registerReceiver`
-               to enable PRISMA emissions on the newly deployed `TroveManager`
-        @param collateral Collateral token to use in new deployment
-        @param priceFeed Custom `PriceFeed` deployment. Leave as `address(0)` to use the default.
-        @param customTroveManagerImpl Custom `TroveManager` implementation to clone from.
-                                      Leave as `address(0)` to use the default.
-        @param customSortedTrovesImpl Custom `SortedTroves` implementation to clone from.
-                                      Leave as `address(0)` to use the default.
-        @param params Struct of initial parameters to be set on the new trove manager
+     * @notice Deploy new instances of `TroveManager` and `SortedTroves`, adding
+     *             a new collateral type to the system.
+     *     @dev * When using the default `PriceFeed`, ensure it is configured correctly
+     *            prior to calling this function.
+     * After calling this function, the owner should also call `Vault.registerReceiver`
+     *            to enable PRISMA emissions on the newly deployed `TroveManager`
+     *     @param collateral Collateral token to use in new deployment
+     *     @param priceFeed Custom `PriceFeed` deployment. Leave as `address(0)` to use the default.
+     *     @param customTroveManagerImpl Custom `TroveManager` implementation to clone from.
+     *                                   Leave as `address(0)` to use the default.
+     *     @param customSortedTrovesImpl Custom `SortedTroves` implementation to clone from.
+     *                                   Leave as `address(0)` to use the default.
+     *     @param params Struct of initial parameters to be set on the new trove manager
      */
     function deployNewInstance(
         address collateral,

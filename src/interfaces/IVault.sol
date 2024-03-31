@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-interface IPrismaVault {
+interface IAltheaVault {
     struct InitialAllowance {
         address receiver;
         uint256 amount;
@@ -59,12 +59,10 @@ interface IPrismaVault {
 
     function boostDelegation(address) external view returns (bool isEnabled, uint16 feePct, address callback);
 
-    function claimableRewardAfterBoost(
-        address account,
-        address receiver,
-        address boostDelegate,
-        address rewardContract
-    ) external view returns (uint256 adjustedAmount, uint256 feeToDelegate);
+    function claimableRewardAfterBoost(address account, address receiver, address boostDelegate, address rewardContract)
+        external
+        view
+        returns (uint256 adjustedAmount, uint256 feeToDelegate);
 
     function emissionSchedule() external view returns (address);
 
@@ -84,7 +82,7 @@ interface IPrismaVault {
 
     function claimableBoostDelegationFees(address claimant) external view returns (uint256 amount);
 
-    function prismaToken() external view returns (address);
+    function theaToken() external view returns (address);
 
     function receiverUpdatedWeek(uint256) external view returns (uint16);
 

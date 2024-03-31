@@ -86,6 +86,8 @@ interface IBorrowerOperations {
         address _lowerHint
     ) external;
 
+    function setDebtTokenAddress(address _debtTokenAddress) external;
+
     function checkRecoveryMode(uint256 TCR) external pure returns (bool);
 
     function CCR() external view returns (uint256);

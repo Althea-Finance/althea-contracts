@@ -7,3 +7,6 @@
 [submodule "lib/layerzerolabs"]
 	path = lib/layerzerolabs
 	url = https://github.com/LayerZero-Labs/solidity-examples
+	branch = main
+[submodule "lib\\forge-std"]
+	branch = v1.8.1

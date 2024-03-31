@@ -15,6 +15,8 @@ interface IStabilityPool {
     event StabilityPoolDebtBalanceUpdated(uint256 _newBalance);
     event UserDepositChanged(address indexed _depositor, uint256 _newDeposit);
 
+    function setAltheaVaultAddress(address _altheaVaultAddress) external;
+
     function claimCollateralGains(address recipient, uint256[] calldata collateralIndexes) external;
 
     function claimReward(address recipient) external returns (uint256 amount);

@@ -2,17 +2,19 @@
 
 pragma solidity 0.8.19;
 
-import { OFT, IERC20, ERC20 } from "@layerzerolabs/contracts/token/oft/OFT.sol";
-import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
-import "../interfaces/IPrismaCore.sol";
+import {OFTV2} from "@layerzerolabs/contracts/token/oft/v2/OFTV2.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
+import "../interfaces/IAltheaCore.sol";
 
 /**
-    @title Prisma Debt Token "acUSD"
-    @notice CDP minted against collateral deposits within `TroveManager`.
-            This contract has a 1:n relationship with multiple deployments of `TroveManager`,
-            each of which hold one collateral type which may be used to mint this token.
+ * @title Prisma Debt Token "acUSD"
+ *     @notice CDP minted against collateral deposits within `TroveManager`.
+ *             This contract has a 1:n relationship with multiple deployments of `TroveManager`,
+ *             each of which hold one collateral type which may be used to mint this token.
  */
-contract DebtToken is OFT {
+contract DebtToken is OFTV2 {
     string public constant version = "1";
 
     // --- ERC 3156 Data ---
@@ -37,9 +39,9 @@ contract DebtToken is OFT {
     mapping(address => uint256) private _nonces;
 
     // --- Addresses ---
-    IPrismaCore private immutable _prismaCore;
+    IAltheaCore private immutable _altheaCore;
     address public immutable stabilityPoolAddress;
-    address public immutable borrowerOperationsAddress;
+    address public borrowerOperationsAddress;
     address public immutable factory;
     address public immutable gasPool;
 
@@ -53,14 +55,15 @@ contract DebtToken is OFT {
         string memory _symbol,
         address _stabilityPoolAddress,
         address _borrowerOperationsAddress,
-        IPrismaCore prismaCore_,
+        IAltheaCore altheaCore_,
         address _layerZeroEndpoint,
         address _factory,
         address _gasPool,
-        uint256 _gasCompensation
-    ) OFT(_name, _symbol, _layerZeroEndpoint) {
+        uint256 _gasCompensation,
+        uint8 _sharedDecimals
+    ) OFTV2(_name, _symbol, _sharedDecimals, _layerZeroEndpoint) {
         stabilityPoolAddress = _stabilityPoolAddress;
-        _prismaCore = prismaCore_;
+        _altheaCore = altheaCore_;
         borrowerOperationsAddress = _borrowerOperationsAddress;
         factory = _factory;
         gasPool = _gasPool;
@@ -74,6 +77,12 @@ contract DebtToken is OFT {
         _HASHED_VERSION = hashedVersion;
         _CACHED_CHAIN_ID = block.chainid;
         _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator(_TYPE_HASH, hashedName, hashedVersion);
+    }
+
+    function setBorrowerOperationsAddress(address _borrowerOperationsAddress) external {
+        require(_borrowerOperationsAddress != address(0), "Debt: invalid borrower operations");
+        require(msg.sender == factory, "!Factory");
+        borrowerOperationsAddress = _borrowerOperationsAddress;
     }
 
     function enableTroveManager(address _troveManager) external {
@@ -121,16 +130,12 @@ contract DebtToken is OFT {
 
     // --- External functions ---
 
-    function transfer(address recipient, uint256 amount) public override(IERC20, ERC20) returns (bool) {
+    function transfer(address recipient, uint256 amount) public override(ERC20) returns (bool) {
         _requireValidRecipient(recipient);
         return super.transfer(recipient, amount);
     }
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public override(IERC20, ERC20) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount) public override(ERC20) returns (bool) {
         _requireValidRecipient(recipient);
         return super.transferFrom(sender, recipient, amount);
     }
@@ -186,12 +191,10 @@ contract DebtToken is OFT {
     // This function can reenter, but it doesn't pose a risk because it always preserves the property that the amount
     // minted at the beginning is always recovered and burned at the end, or else the entire function will revert.
     // slither-disable-next-line reentrancy-no-eth
-    function flashLoan(
-        IERC3156FlashBorrower receiver,
-        address token,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bool) {
+    function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data)
+        external
+        returns (bool)
+    {
         require(token == address(this), "ERC20FlashMint: wrong token");
         require(amount <= maxFlashLoan(token), "ERC20FlashMint: amount exceeds maxFlashLoan");
         uint256 fee = _flashFee(amount);
@@ -202,7 +205,7 @@ contract DebtToken is OFT {
         );
         _spendAllowance(address(receiver), address(this), amount + fee);
         _burn(address(receiver), amount);
-        _transfer(address(receiver), _prismaCore.feeReceiver(), fee);
+        _transfer(address(receiver), _altheaCore.feeReceiver(), fee);
         return true;
     }
 
@@ -216,15 +219,9 @@ contract DebtToken is OFT {
         }
     }
 
-    function permit(
-        address owner,
-        address spender,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function permit(address owner, address spender, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external
+    {
         require(deadline >= block.timestamp, "Debt: expired deadline");
         bytes32 digest = keccak256(
             abi.encodePacked(

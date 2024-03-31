@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../dependencies/PrismaOwnable.sol";
+import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../interfaces/ITroveManager.sol";
@@ -14,12 +14,9 @@ interface IFeeDistributor {
 }
 
 interface ICryptoSwap {
-    function add_liquidity(
-        uint256[2] memory amounts,
-        uint256 min_mint_amount,
-        bool use_eth,
-        address receiver
-    ) external returns (uint256);
+    function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount, bool use_eth, address receiver)
+        external
+        returns (uint256);
 
     function price_oracle() external view returns (uint256);
 
@@ -28,7 +25,7 @@ interface ICryptoSwap {
     function token() external view returns (address);
 }
 
-contract AddLiquidityChecker is PrismaOwnable {
+contract AddLiquidityChecker is AltheaOwnable {
     ICryptoSwap public immutable curvePool;
 
     uint256 public constant MAX_PCT = 10000;
@@ -37,7 +34,7 @@ contract AddLiquidityChecker is PrismaOwnable {
     // adding liquidity on `curvePool`. protects against sandwich attacks.
     uint256 public maxDeviation;
 
-    constructor(address _core, ICryptoSwap _curve, uint256 _maxDeviation) PrismaOwnable(_core) {
+    constructor(address _core, ICryptoSwap _curve, uint256 _maxDeviation) AltheaOwnable(_core) {
         curvePool = _curve;
         maxDeviation = _maxDeviation;
     }
@@ -62,12 +59,12 @@ contract AddLiquidityChecker is PrismaOwnable {
     }
 }
 
-contract FeeConverter is PrismaOwnable, SystemStart {
+contract FeeConverter is AltheaOwnable, SystemStart {
     using SafeERC20 for IERC20;
 
     IFeeDistributor public immutable feeDistributor;
     IERC20 public immutable debtToken;
-    IERC20 public immutable prismaToken;
+    IERC20 public immutable theaToken;
     IFactory public immutable factory;
 
     ICryptoSwap public immutable curvePool;
@@ -112,11 +109,7 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     event IsSellingCollateralSet(address[] collaterals, bool isSelling);
 
     event CollateralSold(
-        address indexed buyer,
-        address indexed collateral,
-        uint256 price,
-        uint256 amountSold,
-        uint256 amountReceived
+        address indexed buyer, address indexed collateral, uint256 price, uint256 amountSold, uint256 amountReceived
     );
 
     event LiquidityAdded(uint256 priceScale, uint256 debtAmount, uint256 prismaAmount, uint256 lpAmountReceived);
@@ -138,24 +131,24 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     constructor(
-        address _prismaCore,
+        address _altheaCore,
         address _feeDistributor,
         IERC20 _debtToken,
-        IERC20 _prismaToken,
+        IERC20 _theaToken,
         IFactory _factory,
         ICryptoSwap _curvePool,
         InitialParams memory initialParams
-    ) PrismaOwnable(_prismaCore) SystemStart(_prismaCore) {
+    ) AltheaOwnable(_altheaCore) SystemStart(_altheaCore) {
         feeDistributor = IFeeDistributor(_feeDistributor);
         debtToken = _debtToken;
-        prismaToken = _prismaToken;
+        theaToken = _theaToken;
         factory = _factory;
         curvePool = _curvePool;
         curvePoolLp = IERC20(_curvePool.token());
 
         _debtToken.approve(_feeDistributor, type(uint256).max);
         _debtToken.approve(address(_curvePool), type(uint256).max);
-        _prismaToken.approve(address(_curvePool), type(uint256).max);
+        _theaToken.approve(address(_curvePool), type(uint256).max);
 
         setWeeklyDebtParams(initialParams.maxWeeklyDebtAmount, initialParams.maxWeeklyDebtPct);
         setPOLParams(initialParams.targetPOLPct, initialParams.weeklyDebtPOLPct);
@@ -198,15 +191,15 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     function setIsSellingCollateral(address[] memory collaterals, bool isSelling) public onlyOwner {
         uint256 length = collaterals.length;
         if (isSelling) {
-            IPriceFeed feed = IPriceFeed(PRISMA_CORE.priceFeed());
-            for (uint i = 0; i < length; i++) {
+            IPriceFeed feed = IPriceFeed(ALTHEA_CORE.priceFeed());
+            for (uint256 i = 0; i < length; i++) {
                 address collateral = collaterals[i];
                 // fetch price as validation that collateral can be sold
                 feed.fetchPrice(collateral);
                 isSellingCollateral[collateral] = true;
             }
         } else {
-            for (uint i = 0; i < length; i++) {
+            for (uint256 i = 0; i < length; i++) {
                 isSellingCollateral[collaterals[i]] = false;
             }
         }
@@ -215,16 +208,16 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     /**
-        @notice Swap collateral token for debt
-        @dev Collateral is sold at the oracle price without discount, assuming a
-             debt token value of $1. Swaps become profitable for the caller when
-             the debt token price is under peg. As fees from redemptions are
-             also generated only when the debt price is under peg, it is expected
-             that redeemers will also call this function in the same action.
+     * @notice Swap collateral token for debt
+     *     @dev Collateral is sold at the oracle price without discount, assuming a
+     *          debt token value of $1. Swaps become profitable for the caller when
+     *          the debt token price is under peg. As fees from redemptions are
+     *          also generated only when the debt price is under peg, it is expected
+     *          that redeemers will also call this function in the same action.
      */
     function swapDebtForColl(address collateral, uint256 debtAmount) external returns (uint256) {
         require(isSellingCollateral[collateral], "Collateral sale disabled");
-        address receiver = PRISMA_CORE.feeReceiver();
+        address receiver = ALTHEA_CORE.feeReceiver();
 
         (uint256 collAmount, uint256 price) = getSwapAmountReceived(collateral, debtAmount);
         debtToken.transferFrom(msg.sender, receiver, debtAmount);
@@ -235,27 +228,27 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     /**
-        @notice Get the amount received when swapping collateral for debt
-        @dev Intended to be called as a view method
+     * @notice Get the amount received when swapping collateral for debt
+     *     @dev Intended to be called as a view method
      */
-    function getSwapAmountReceived(
-        address collateral,
-        uint256 debtAmount
-    ) public returns (uint256 collAmount, uint256 price) {
-        IPriceFeed feed = IPriceFeed(PRISMA_CORE.priceFeed());
+    function getSwapAmountReceived(address collateral, uint256 debtAmount)
+        public
+        returns (uint256 collAmount, uint256 price)
+    {
+        IPriceFeed feed = IPriceFeed(ALTHEA_CORE.priceFeed());
         price = feed.fetchPrice(collateral);
         collAmount = (debtAmount * 1e18) / price;
         return (collAmount, price);
     }
 
     /**
-        @notice Update the local storage array of trove managers
-        @dev Should be called whenever a trove manager is added
+     * @notice Update the local storage array of trove managers
+     *     @dev Should be called whenever a trove manager is added
      */
     function syncTroveManagers() public returns (bool) {
         uint256 newLength = factory.troveManagerCount();
 
-        for (uint i = troveManagers.length; i < newLength; i++) {
+        for (uint256 i = troveManagers.length; i < newLength; i++) {
             ITroveManager troveManager = ITroveManager(factory.troveManagers(i));
             troveManagers.push(troveManager);
         }
@@ -265,12 +258,12 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     /**
-        @notice Collect accrued interest from all trove managers
-        @dev Callable by anyone at any time. Also called within `processWeeklyFees`.
+     * @notice Collect accrued interest from all trove managers
+     *     @dev Callable by anyone at any time. Also called within `processWeeklyFees`.
      */
     function collectInterests() public returns (bool) {
         uint256 length = troveManagers.length;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             ITroveManager tm = troveManagers[i];
             if (tm.interestPayable() > 0) tm.collectInterests();
         }
@@ -280,9 +273,9 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     /**
-        @notice Process weekly fees
-        @dev Callable once per week. The caller is incentivized with a fixed
-             amount of debt tokens.
+     * @notice Process weekly fees
+     *     @dev Callable once per week. The caller is incentivized with a fixed
+     *          amount of debt tokens.
      */
     function processWeeklyFees() external returns (bool) {
         require(getWeek() > updatedWeek, "Already called this week");
@@ -292,7 +285,7 @@ contract FeeConverter is PrismaOwnable, SystemStart {
         collectInterests();
 
         // calculate amount of debtToken to distribute
-        address receiver = PRISMA_CORE.feeReceiver();
+        address receiver = ALTHEA_CORE.feeReceiver();
         uint256 amount = debtToken.balanceOf(receiver);
         amount = (amount * maxWeeklyDebtPct) / MAX_PCT;
         uint256 maxDebt = maxWeeklyDebtAmount;
@@ -344,14 +337,14 @@ contract FeeConverter is PrismaOwnable, SystemStart {
     }
 
     /**
-        @notice Add any pending liquidity
-        @dev Reverts if the liquidity checker disallows
+     * @notice Add any pending liquidity
+     *     @dev Reverts if the liquidity checker disallows
      */
     function addPendingLiquidity() external returns (bool) {
         uint256 amount = pendingPOLDebtAmount;
         if (amount > 0) {
             require(addLiquidityChecker.canAddLiquidity(msg.sender, amount), "Blocked by liquidityChecker");
-            uint added = _addLiquidity(amount, PRISMA_CORE.feeReceiver());
+            uint256 added = _addLiquidity(amount, ALTHEA_CORE.feeReceiver());
             pendingPOLDebtAmount = uint88(amount - added);
             emit PendingPOLDebtUpdated(amount - added);
         }
@@ -366,7 +359,7 @@ contract FeeConverter is PrismaOwnable, SystemStart {
                 pendingPOLDebtAmount = 0;
                 emit PendingPOLDebtUpdated(0);
             }
-            token.safeTransfer(PRISMA_CORE.feeReceiver(), amount);
+            token.safeTransfer(ALTHEA_CORE.feeReceiver(), amount);
         }
         return true;
     }
@@ -375,16 +368,16 @@ contract FeeConverter is PrismaOwnable, SystemStart {
         uint256 priceScale = curvePool.price_scale();
 
         uint256 prismaAmount = (debtAmount * 1e18) / priceScale;
-        uint256 prismaAvailable = prismaToken.balanceOf(receiver);
+        uint256 prismaAvailable = theaToken.balanceOf(receiver);
 
-        // if insufficient PRISMA is available, adjust the amounts
+        // if insufficient THEA is available, adjust the amounts
         if (prismaAvailable < prismaAmount) {
             if (prismaAvailable < 1e18) return 0;
             prismaAmount = prismaAvailable;
             debtAmount = (prismaAmount * priceScale) / 1e18;
         }
 
-        prismaToken.transferFrom(receiver, address(this), prismaAmount);
+        theaToken.transferFrom(receiver, address(this), prismaAmount);
         uint256 lpAmount = curvePool.add_liquidity([debtAmount, prismaAmount], 0, false, receiver);
 
         emit LiquidityAdded(priceScale, debtAmount, prismaAmount, lpAmount);

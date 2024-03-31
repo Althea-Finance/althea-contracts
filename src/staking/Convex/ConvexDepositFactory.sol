@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../dependencies/AltheaOwnable.sol";
 
 interface IConvexDepositToken {
     function initialize(uint256 pid) external;
@@ -14,10 +14,10 @@ interface IConvexDepositToken {
 }
 
 /**
-    @notice Prisma Convex Factory
-    @title Deploys clones of `ConvexDepositToken` as directed by the Prisma DAO
+ * @notice Prisma Convex Factory
+ *     @title Deploys clones of `ConvexDepositToken` as directed by the Prisma DAO
  */
-contract ConvexFactory is PrismaOwnable {
+contract ConvexFactory is AltheaOwnable {
     using Clones for address;
 
     address public depositTokenImpl;
@@ -27,15 +27,13 @@ contract ConvexFactory is PrismaOwnable {
     event NewDeployment(address depositToken, address lpToken, uint256 convexPid);
     event ImplementationSet(address depositTokenImpl);
 
-    constructor(
-        address _prismaCore,
-        address _depositTokenImpl,
-        address[] memory _existingDeployments
-    ) PrismaOwnable(_prismaCore) {
+    constructor(address _prismaCore, address _depositTokenImpl, address[] memory _existingDeployments)
+        AltheaOwnable(_prismaCore)
+    {
         depositTokenImpl = _depositTokenImpl;
         emit ImplementationSet(_depositTokenImpl);
 
-        for (uint i = 0; i < _existingDeployments.length; i++) {
+        for (uint256 i = 0; i < _existingDeployments.length; i++) {
             address depositToken = _existingDeployments[i];
             address lpToken = IConvexDepositToken(depositToken).lpToken();
             uint256 pid = IConvexDepositToken(depositToken).depositPid();
@@ -45,8 +43,8 @@ contract ConvexFactory is PrismaOwnable {
     }
 
     /**
-        @dev After calling this function, the owner should also call `Vault.registerReceiver`
-             to enable PRISMA emissions on the newly deployed `ConvexDepositToken`
+     * @dev After calling this function, the owner should also call `Vault.registerReceiver`
+     *          to enable PRISMA emissions on the newly deployed `ConvexDepositToken`
      */
     function deployNewInstance(uint256 pid) external onlyOwner {
         // cloning reverts if duplicating the same pid with the same implementation

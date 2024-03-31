@@ -7,20 +7,20 @@ import "../../interfaces/ICurveProxy.sol";
 import "../../interfaces/IVault.sol";
 import "../../interfaces/ILiquidityGauge.sol";
 import "../../interfaces/IGaugeController.sol";
-import "../../dependencies/PrismaOwnable.sol";
+import "../../dependencies/AltheaOwnable.sol";
 
 /**
-    @title Prisma Curve Deposit Wrapper
-    @notice Standard ERC20 interface around a deposit of a Curve LP token into it's
-            associated gauge. Tokens are minted by depositing Curve LP tokens, and
-            burned to receive the LP tokens back. Holders may claim PRISMA emissions
-            on top of the earned CRV.
+ * @title Prisma Curve Deposit Wrapper
+ *     @notice Standard ERC20 interface around a deposit of a Curve LP token into it's
+ *             associated gauge. Tokens are minted by depositing Curve LP tokens, and
+ *             burned to receive the LP tokens back. Holders may claim PRISMA emissions
+ *             on top of the earned CRV.
  */
-contract CurveDepositToken is PrismaOwnable {
+contract CurveDepositToken is AltheaOwnable {
     IERC20 public immutable PRISMA;
     IERC20 public immutable CRV;
     ICurveProxy public immutable curveProxy;
-    IPrismaVault public immutable vault;
+    IAltheaVault public immutable vault;
     IGaugeController public immutable gaugeController;
 
     ILiquidityGauge public gauge;
@@ -65,10 +65,10 @@ contract CurveDepositToken is PrismaOwnable {
         IERC20 _prisma,
         IERC20 _CRV,
         ICurveProxy _curveProxy,
-        IPrismaVault _vault,
+        IAltheaVault _vault,
         IGaugeController _gaugeController,
-        address prismaCore
-    ) PrismaOwnable(prismaCore) {
+        address altheaCore
+    ) AltheaOwnable(altheaCore) {
         PRISMA = _prisma;
         CRV = _CRV;
         curveProxy = _curveProxy;
@@ -251,8 +251,9 @@ contract CurveDepositToken is PrismaOwnable {
     }
 
     function _pushExcessEmissions(uint256 newAmount) internal {
-        if (vault.lockWeeks() > 0) storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
-        else {
+        if (vault.lockWeeks() > 0) {
+            storedExcessEmissions = uint128(storedExcessEmissions + newAmount);
+        } else {
             uint256 excess = storedExcessEmissions + newAmount;
             storedExcessEmissions = 0;
             vault.transferAllocatedTokens(address(this), address(this), excess);

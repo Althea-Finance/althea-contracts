@@ -3,15 +3,15 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/IPrismaCore.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/IAltheaCore.sol";
 
 /**
-    @title Prisma DAO Interim Admin
-    @notice Temporary ownership contract for all Prisma contracts during bootstrap phase. Allows executing
-            arbitrary function calls by the deployer following a minimum time before execution.
-            The protocol guardian can cancel any proposals and cannot be replaced.
-            To avoid a malicious flood attack the number of daily proposals is capped.
+ * @title Prisma DAO Interim Admin
+ *     @notice Temporary ownership contract for all Prisma contracts during bootstrap phase. Allows executing
+ *             arbitrary function calls by the deployer following a minimum time before execution.
+ *             The protocol guardian can cancel any proposals and cannot be replaced.
+ *             To avoid a malicious flood attack the number of daily proposals is capped.
  */
 contract InterimAdmin is Ownable {
     using Address for address;
@@ -35,15 +35,15 @@ contract InterimAdmin is Ownable {
     uint256 public constant MAX_TIME_TO_EXECUTION = 3 weeks;
     uint256 public constant MAX_DAILY_PROPOSALS = 3;
 
-    IPrismaCore public immutable prismaCore;
+    IAltheaCore public immutable altheaCore;
     address public adminVoting;
 
     Proposal[] proposalData;
     mapping(uint256 => Action[]) proposalPayloads;
     mapping(uint256 => uint256) dailyProposalsCount;
 
-    constructor(address _prismaCore) {
-        prismaCore = IPrismaCore(_prismaCore);
+    constructor(address _altheaCore) {
+        altheaCore = IAltheaCore(_altheaCore);
     }
 
     function setAdminVoting(address _adminVoting) external onlyOwner {
@@ -53,42 +53,41 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @notice The total number of votes created
+     * @notice The total number of votes created
      */
     function getProposalCount() external view returns (uint256) {
         return proposalData.length;
     }
 
     /**
-        @notice Gets information on a specific proposal
+     * @notice Gets information on a specific proposal
      */
-    function getProposalData(
-        uint256 id
-    )
+    function getProposalData(uint256 id)
         external
         view
         returns (uint256 createdAt, uint256 canExecuteAfter, bool executed, bool canExecute, Action[] memory payload)
     {
         Proposal memory proposal = proposalData[id];
         payload = proposalPayloads[id];
-        canExecute = (!proposal.processed &&
-            proposal.canExecuteAfter < block.timestamp &&
-            proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp);
+        canExecute = (
+            !proposal.processed && proposal.canExecuteAfter < block.timestamp
+                && proposal.canExecuteAfter + MAX_TIME_TO_EXECUTION > block.timestamp
+        );
 
         return (proposal.createdAt, proposal.canExecuteAfter, proposal.processed, canExecute, payload);
     }
 
     /**
-        @notice Create a new proposal
-        @param payload Tuple of [(target address, calldata), ... ] to be
-                       executed if the proposal is passed.
+     * @notice Create a new proposal
+     *     @param payload Tuple of [(target address, calldata), ... ] to be
+     *                    executed if the proposal is passed.
      */
     function createNewProposal(Action[] calldata payload) external onlyOwner {
         require(payload.length > 0, "Empty payload");
         uint256 day = block.timestamp / 1 days;
         uint256 currentDailyCount = dailyProposalsCount[day];
         require(currentDailyCount < MAX_DAILY_PROPOSALS, "MAX_DAILY_PROPOSALS");
-        uint loopEnd = payload.length;
+        uint256 loopEnd = payload.length;
         for (uint256 i; i < loopEnd; i++) {
             require(!_isSetGuardianPayload(payload[i]), "Cannot change guardian");
         }
@@ -109,23 +108,23 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @notice Cancels a pending proposal
-        @dev Can only be called by the guardian to avoid malicious proposals
-             The guardian cannot cancel a proposal where the only action is
-             changing the guardian.
-        @param id Proposal ID
+     * @notice Cancels a pending proposal
+     *     @dev Can only be called by the guardian to avoid malicious proposals
+     *          The guardian cannot cancel a proposal where the only action is
+     *          changing the guardian.
+     *     @param id Proposal ID
      */
     function cancelProposal(uint256 id) external {
-        require(msg.sender == owner() || msg.sender == prismaCore.guardian(), "Unauthorized");
+        require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");
         require(id < proposalData.length, "Invalid ID");
         proposalData[id].processed = true;
         emit ProposalCancelled(id);
     }
 
     /**
-        @notice Execute a proposal's payload
-        @dev Can only be called if the proposal has been active for at least `MIN_TIME_TO_EXECUTION`
-        @param id Proposal ID
+     * @notice Execute a proposal's payload
+     *     @dev Can only be called if the proposal has been active for at least `MIN_TIME_TO_EXECUTION`
+     *     @param id Proposal ID
      */
     function executeProposal(uint256 id) external onlyOwner {
         require(id < proposalData.length, "Invalid ID");
@@ -149,19 +148,19 @@ contract InterimAdmin is Ownable {
     }
 
     /**
-        @dev Allow accepting ownership transfer of `PrismaCore`
+     * @dev Allow accepting ownership transfer of `AltheaCore`
      */
     function acceptTransferOwnership() external onlyOwner {
-        prismaCore.acceptTransferOwnership();
+        altheaCore.acceptTransferOwnership();
     }
 
     /**
-        @dev Restricted method to transfer ownership of `PrismaCore`
-             to the actual Admin voting contract
+     * @dev Restricted method to transfer ownership of `AltheaCore`
+     *          to the actual Admin voting contract
      */
     function transferOwnershipToAdminVoting() external {
-        require(msg.sender == owner() || msg.sender == prismaCore.guardian(), "Unauthorized");
-        prismaCore.commitTransferOwnership(adminVoting);
+        require(msg.sender == owner() || msg.sender == altheaCore.guardian(), "Unauthorized");
+        altheaCore.commitTransferOwnership(adminVoting);
     }
 
     function _isSetGuardianPayload(Action memory action) internal pure returns (bool) {
@@ -171,6 +170,6 @@ contract InterimAdmin is Ownable {
         assembly {
             sig := mload(add(data, 0x20))
         }
-        return sig == IPrismaCore.setGuardian.selector;
+        return sig == IAltheaCore.setGuardian.selector;
     }
 }
