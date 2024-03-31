@@ -82,10 +82,10 @@ contract AltheaTokenDeployment is Script {
 
     function deployRTheaToken() internal {
         rTheaToken = new RTheaToken(address(rTheaAllocationVesting));
-        rTheaAllocationVesting.setRTheaToken(address(rTheaToken));
+        rTheaAllocationVesting.setRtheaAddress(address(rTheaToken));
     }
 
-    function transferRTheaToHerculesIDO() internal {
+    function transferTheaAndRTheaToHerculesIDO() internal {
         theaToken.mintTo(HERCULES_IDO_ADDRESS, HERCULES_IDO_THEA_ALLOCATION);
         rTheaToken.transfer(HERCULES_IDO_ADDRESS, HERCULES_IDO_RTHEA_ALLOCATION);
         theaToken.mintTo(address(rTheaAllocationVesting), THEA_TO_RTHEA_ALLOCATION_VESTING);
