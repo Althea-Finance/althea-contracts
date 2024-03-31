@@ -57,17 +57,17 @@ contract AltheaTokenDeployment is Script {
         transferTheaAndRTheaToHerculesIDO();
         vm.stopBroadcast();
 
-        vm.startBroadcast();
-        mintTheaToAllocationVesting();
-        vm.stopBroadcast();
+        // vm.startBroadcast();
+        // mintTheaToAllocationVesting();
+        // vm.stopBroadcast();
 
-        vm.startBroadcast();
-        mintTheaToVaultMultisig();
-        vm.stopBroadcast();
+        // vm.startBroadcast();
+        // mintTheaToVaultMultisig();
+        // vm.stopBroadcast();
 
-        vm.startBroadcast();
-        mintTheaToTreasuryMultisig();
-        vm.stopBroadcast();
+        // vm.startBroadcast();
+        // mintTheaToTreasuryMultisig();
+        // vm.stopBroadcast();
 
     }
 
