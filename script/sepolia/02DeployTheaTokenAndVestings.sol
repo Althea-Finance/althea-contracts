@@ -20,7 +20,7 @@ contract AltheaTokenDeployment is Script {
     uint8 constant LAYER_ZERO_SHARED_DECIMALS = 6; // standard shared decimals for ERC20s with 18 decimals
 
     // Hercules IDO configuration
-    address constant HERCULES_IDO_ADDRESS = 0x4e9fFEb0272703acF643037e04FdcF86079fCb80;  // validated
+    address constant HERCULES_IDO_ADDRESS = 0x4e9fFEb0272703acF643037e04FdcF86079fCb80; // validated
     uint256 constant HERCULES_IDO_THEA_ALLOCATION = 6_000_000 * 1e18;
     uint256 constant HERCULES_IDO_RTHEA_ALLOCATION = 9_000_000 * 1e18;
     uint256 constant THEA_TO_RTHEA_ALLOCATION_VESTING = 9_000_000 * 1e18;
@@ -31,7 +31,7 @@ contract AltheaTokenDeployment is Script {
     address constant VAULT_MULTISIG_ADDRESS = 0x517A3af3c8670dad0C884B7C001D9A0A40270643; // validated
     uint256 constant THEA_TO_VAULT_MULTISIG = 50_000_000 * 1e18;
 
-    address constant TREASURY_MULTISIG_ADDRESS = 0x4f7ad18b0D9f4b493f601810a6e83FCBF02d48D3;  // validated
+    address constant TREASURY_MULTISIG_ADDRESS = 0x4f7ad18b0D9f4b493f601810a6e83FCBF02d48D3; // validated
     uint256 constant THEA_TO_TREASURY_MULTISIG = 2_000_000 * 1e18;
 
     function setUp() public virtual {}
@@ -68,7 +68,6 @@ contract AltheaTokenDeployment is Script {
         // vm.startBroadcast();
         // mintTheaToTreasuryMultisig();
         // vm.stopBroadcast();
-
     }
 
     function deployTheaToken() internal {

@@ -174,7 +174,7 @@ contract AltheaCoreDeployment is Script {
 
         tokenLocker = new TokenLocker(
             address(altheaCore),
-            theaToken,
+            address(theaToken),
             IIncentiveVoting(address(0)), // IncentiveVoting. Will be set later
             OWNER_ADDRESS, // should be deployment manager, but owner is used
             lockToTokenRatio
@@ -269,7 +269,7 @@ contract AltheaCoreDeployment is Script {
             address(gasPool),
             address(debtToken),
             address(borrowerOperations),
-            address(0), // AltheaVault. Will be set later
+            // address(0), // AltheaVault. Will be set later // @audit this is not needed anymore, as rewards are independent from the vault
             address(liquidationManager),
             gasCompensation
         );

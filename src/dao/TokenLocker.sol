@@ -6,7 +6,11 @@ import "../dependencies/AltheaOwnable.sol";
 import "../dependencies/SystemStart.sol";
 import "../interfaces/IAltheaCore.sol";
 import "../interfaces/IIncentiveVoting.sol";
-import "../interfaces/ITheaToken.sol";
+
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+
+// @audit this contract should also be able to distribute Fees from protocol rewards. Or perhaps move it to another contract?
 
 /**
  * @title Prisma Token Locker
@@ -15,6 +19,8 @@ import "../interfaces/ITheaToken.sol";
  *             core protocol operations.
  */
 contract TokenLocker is AltheaOwnable, SystemStart {
+    using SafeERC20 for IERC20;
+
     // The maximum number of weeks that tokens may be locked for. Also determines the maximum
     // number of active locks that a single account may open. Weight is calculated as:
     // `[balance] * [weeks to unlock]`. Weights are stored as `uint40` and balances as `uint32`,
@@ -30,7 +36,9 @@ contract TokenLocker is AltheaOwnable, SystemStart {
     // cannot be violated or the system could break due to overflow.
     uint256 public immutable lockToTokenRatio;
 
-    ITheaToken public immutable lockToken;
+    /// token to lock (THEA)
+    IERC20 public immutable lockToken;
+
     IIncentiveVoting public incentiveVoter;
     IAltheaCore public immutable altheaCore;
     address public immutable deploymentManager;
@@ -99,16 +107,17 @@ contract TokenLocker is AltheaOwnable, SystemStart {
 
     constructor(
         address _altheaCore,
-        ITheaToken _token,
+        address _token,
         IIncentiveVoting _voter,
         address _manager,
         uint256 _lockToTokenRatio
     ) SystemStart(_altheaCore) AltheaOwnable(_altheaCore) {
-        lockToken = _token;
+        lockToken = IERC20(_token);
         incentiveVoter = _voter;
         altheaCore = IAltheaCore(_altheaCore);
         deploymentManager = _manager;
 
+        // @audit should we make this a constant to save gas?
         lockToTokenRatio = _lockToTokenRatio;
     }
 
@@ -436,48 +445,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         require(_weeks > 0, "Min 1 week");
         require(_amount > 0, "Amount must be nonzero");
         _lock(_account, _amount, _weeks);
-        lockToken.transferToLocker(msg.sender, _amount * lockToTokenRatio);
-
+        lockToken.safeTransferFrom(msg.sender, address(this), _amount * lockToTokenRatio);
         return true;
-    }
-
-    function _lock(address _account, uint256 _amount, uint256 _weeks) internal {
-        require(_weeks <= MAX_LOCK_WEEKS, "Exceeds MAX_LOCK_WEEKS");
-        AccountData storage accountData = accountLockData[_account];
-
-        uint256 accountWeight = _weeklyWeightWrite(_account);
-        uint256 totalWeight = getTotalWeightWrite();
-        uint256 systemWeek = getWeek();
-        uint256 frozen = accountData.frozen;
-        if (frozen > 0) {
-            accountData.frozen = uint32(frozen + _amount);
-            _weeks = MAX_LOCK_WEEKS;
-        } else {
-            // disallow a 1 week lock in the final 3 days of the week
-            if (_weeks == 1 && block.timestamp % 1 weeks > 4 days) _weeks = 2;
-
-            accountData.locked = uint32(accountData.locked + _amount);
-            totalDecayRate = uint32(totalDecayRate + _amount);
-
-            uint32[65535] storage unlocks = accountWeeklyUnlocks[_account];
-            uint256 unlockWeek = systemWeek + _weeks;
-            uint256 previous = unlocks[unlockWeek];
-
-            // modify weekly unlocks and unlock bitfield
-            unlocks[unlockWeek] = uint32(previous + _amount);
-            totalWeeklyUnlocks[unlockWeek] += uint32(_amount);
-            if (previous == 0) {
-                uint256 idx = unlockWeek / 256;
-                uint256 bitfield = accountData.updateWeeks[idx] | (uint256(1) << (unlockWeek % 256));
-                accountData.updateWeeks[idx] = bitfield;
-            }
-        }
-
-        // update and adjust account weight and decay rate
-        accountWeeklyWeights[_account][systemWeek] = uint40(accountWeight + _amount * _weeks);
-        // update and modify total weight
-        totalWeeklyWeights[systemWeek] = uint40(totalWeight + _amount * _weeks);
-        emit LockCreated(_account, _amount, _weeks);
     }
 
     /**
@@ -550,6 +519,8 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         AccountData storage accountData = accountLockData[_account];
         uint32[65535] storage unlocks = accountWeeklyUnlocks[_account];
 
+        // @audit add some more input validation here
+
         // update account weight
         uint256 accountWeight = _weeklyWeightWrite(_account);
         uint256 systemWeek = getWeek();
@@ -591,8 +562,6 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         accountData.updateWeeks[systemWeek / 256] = bitfield[0];
         accountData.updateWeeks[(systemWeek / 256) + 1] = bitfield[1];
 
-        lockToken.transferToLocker(msg.sender, increasedAmount * lockToTokenRatio);
-
         // update account and total weight / decay storage values
         accountWeeklyWeights[_account][systemWeek] = uint40(accountWeight + increasedWeight);
         totalWeeklyWeights[systemWeek] = uint40(getTotalWeightWrite() + increasedWeight);
@@ -600,6 +569,9 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         accountData.locked = uint32(accountData.locked + increasedAmount);
         totalDecayRate = uint32(totalDecayRate + increasedAmount);
         emit LocksCreated(_account, newLocks);
+
+        // lock tokens will stay in this contract while locked
+        lockToken.safeTransferFrom(msg.sender, address(this), increasedAmount * lockToTokenRatio);
 
         return true;
     }
@@ -777,7 +749,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         if (_weeks > 0) {
             _lock(msg.sender, unlocked, _weeks);
         } else {
-            lockToken.transfer(msg.sender, unlocked * lockToTokenRatio);
+            lockToken.safeTransfer(msg.sender, unlocked * lockToTokenRatio);
             emit LocksWithdrawn(msg.sender, unlocked, 0);
         }
         return true;
@@ -814,7 +786,7 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         uint256 unlocked = accountData.unlocked * lockToTokenRatio;
         if (unlocked >= amountToWithdraw) {
             accountData.unlocked = uint32((unlocked - amountToWithdraw) / lockToTokenRatio);
-            lockToken.transfer(msg.sender, amountToWithdraw);
+            lockToken.safeTransfer(msg.sender, amountToWithdraw);
             return amountToWithdraw;
         }
 
@@ -887,11 +859,52 @@ contract TokenLocker is AltheaOwnable, SystemStart {
         accountWeeklyWeights[msg.sender][systemWeek] = uint40(weight - decreasedWeight);
         totalWeeklyWeights[systemWeek] = uint40(getTotalWeightWrite() - decreasedWeight);
 
-        lockToken.transfer(msg.sender, amountToWithdraw);
-        lockToken.transfer(altheaCore.feeReceiver(), penaltyTotal);
+        lockToken.safeTransfer(msg.sender, amountToWithdraw);
+        lockToken.safeTransfer(altheaCore.feeReceiver(), penaltyTotal);
         emit LocksWithdrawn(msg.sender, amountToWithdraw, penaltyTotal);
 
         return amountToWithdraw;
+    }
+
+    //////////////////////////// INTERNAL FUNCTIONS ///////////////////////////////
+
+    function _lock(address _account, uint256 _amount, uint256 _weeks) internal {
+        require(_weeks <= MAX_LOCK_WEEKS, "Exceeds MAX_LOCK_WEEKS");
+        AccountData storage accountData = accountLockData[_account];
+
+        uint256 accountWeight = _weeklyWeightWrite(_account);
+        uint256 totalWeight = getTotalWeightWrite();
+        uint256 systemWeek = getWeek();
+        uint256 frozen = accountData.frozen;
+        if (frozen > 0) {
+            accountData.frozen = uint32(frozen + _amount);
+            _weeks = MAX_LOCK_WEEKS;
+        } else {
+            // disallow a 1 week lock in the final 3 days of the week
+            if (_weeks == 1 && block.timestamp % 1 weeks > 4 days) _weeks = 2;
+
+            accountData.locked = uint32(accountData.locked + _amount);
+            totalDecayRate = uint32(totalDecayRate + _amount);
+
+            uint32[65535] storage unlocks = accountWeeklyUnlocks[_account];
+            uint256 unlockWeek = systemWeek + _weeks;
+            uint256 previous = unlocks[unlockWeek];
+
+            // modify weekly unlocks and unlock bitfield
+            unlocks[unlockWeek] = uint32(previous + _amount);
+            totalWeeklyUnlocks[unlockWeek] += uint32(_amount);
+            if (previous == 0) {
+                uint256 idx = unlockWeek / 256;
+                uint256 bitfield = accountData.updateWeeks[idx] | (uint256(1) << (unlockWeek % 256));
+                accountData.updateWeeks[idx] = bitfield;
+            }
+        }
+
+        // update and adjust account weight and decay rate
+        accountWeeklyWeights[_account][systemWeek] = uint40(accountWeight + _amount * _weeks);
+        // update and modify total weight
+        totalWeeklyWeights[systemWeek] = uint40(totalWeight + _amount * _weeks);
+        emit LockCreated(_account, _amount, _weeks);
     }
 
     /**
