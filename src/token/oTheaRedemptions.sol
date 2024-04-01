@@ -68,9 +68,11 @@ contract oTheaRedemptions is AltheaOwnable {
 
         // we need the oTHEA token to have this burnFrom function
         // burn oTHEA from msg.sender // todo make sure this revert if not enough balance, etc
+        // todo oTHEA has to approve this contract for burns
         oTHEA.burnFrom(msg.sender, oTheaAmount);
 
         // mint THEA to theaReceiver
+        // todo this is not minted anymnore, but simple transfers
         THEA.mintTo(theaReceiver, amountInMetisValue);
 
         emit Redeemed(msg.sender, theaReceiver, oTheaAmount, amountInMetisValue);
