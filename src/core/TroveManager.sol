@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IBorrowerOperations.sol";
 import "../interfaces/IDebtToken.sol";
 import "../interfaces/ISortedTroves.sol";
-import "../interfaces/IVault.sol";
 import "../interfaces/IPriceFeed.sol";
+import "../interfaces/IRewardsReceiver.sol";
 import "../dependencies/SystemStart.sol";
 import "../dependencies/AltheaBase.sol";
 import "../dependencies/PrismaMath.sol";
@@ -27,7 +27,7 @@ import "../dependencies/AltheaOwnable.sol";
  *             Functionality related to liquidations has been moved to `LiquidationManager`. This was
  *             necessary to avoid the restriction on deployed bytecode size.
  */
-contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
+contract TroveManager is AltheaBase, AltheaOwnable, SystemStart, IRewardsReceiver {
     using SafeERC20 for IERC20;
 
     // --- Connected contract declarations ---
@@ -36,7 +36,6 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     address public immutable liquidationManager;
     address immutable gasPoolAddress;
     IDebtToken public immutable debtToken;
-    IAltheaVault public vault;
 
     IPriceFeed public priceFeed;
     IERC20 public collateralToken;
@@ -44,7 +43,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     // A doubly linked list of Troves, sorted by their collateral ratios
     ISortedTroves public sortedTroves;
 
-    EmissionId public emissionId;
+    // EmissionId public emissionId; @audit remove this
+
     // Minimum collateral ratio for individual troves
     uint256 public MCR;
 
@@ -121,14 +121,13 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     uint256 public defaultedCollateral;
     uint256 public defaultedDebt;
 
+    // @audit investigate how these rewards integrate with emissions
     uint256 public rewardIntegral;
     uint128 public rewardRate;
     uint32 public lastUpdate;
     uint32 public periodFinish;
-
     mapping(address => uint256) public rewardIntegralFor;
     mapping(address => uint256) private storedPendingReward;
-
     // week -> total available rewards for 1 day within this week
     uint256[65535] public dailyMintReward;
 
@@ -153,10 +152,11 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         uint32 day;
     }
 
-    struct EmissionId {
-        uint16 debt;
-        uint16 minting;
-    }
+    // @audit not needed anymore
+    // struct EmissionId {
+    //     uint16 debt;
+    //     uint16 minting;
+    // }
 
     // Store the necessary data for a trove
     struct Trove {
@@ -210,7 +210,6 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     event TroveUpdated(
         address indexed _borrower, uint256 _debt, uint256 _coll, uint256 _stake, TroveManagerOperation _operation
     );
-
     event Redemption(
         uint256 _attemptedDebtAmount, uint256 _actualDebtAmount, uint256 _collateralSent, uint256 _collateralFee
     );
@@ -224,31 +223,37 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     event CollateralSent(address _to, uint256 _amount);
     event RewardClaimed(address indexed account, address indexed recipient, uint256 claimed);
 
+    error OnlyLiquidationManager();
+    error OnlyBorrowingOperator();
+
+    // @audit review what actions we want to allow when paused
     modifier whenNotPaused() {
         require(!paused, "Collateral Paused");
+        _;
+    }
+
+    modifier onlyLiquidationManager() {
+        if (msg.sender != liquidationManager) revert OnlyLiquidationManager();
+        _;
+    }
+
+    modifier onlyBorrowingOperator() {
+        if (msg.sender != borrowerOperationsAddress) revert OnlyBorrowingOperator();
         _;
     }
 
     constructor(
         address _altheaCore,
         address _gasPoolAddress,
-        address _debtTokenAddress,
+        address _debtTokenAddress, // aUSD
         address _borrowerOperationsAddress,
-        address _vault,
         address _liquidationManager,
         uint256 _gasCompensation
     ) AltheaOwnable(_altheaCore) AltheaBase(_gasCompensation) SystemStart(_altheaCore) {
         gasPoolAddress = _gasPoolAddress;
         debtToken = IDebtToken(_debtTokenAddress);
         borrowerOperationsAddress = _borrowerOperationsAddress;
-        vault = IAltheaVault(_vault);
         liquidationManager = _liquidationManager;
-    }
-
-    function setAltheaVaultAddress(address _vaultAddress) external onlyOwner {
-        require(address(vault) == address(0), "Vault already set");
-        require(_vaultAddress != address(0), "Invalid address");
-        vault = IAltheaVault(_vaultAddress);
     }
 
     function setAddresses(address _priceFeedAddress, address _sortedTrovesAddress, address _collateralToken) external {
@@ -261,17 +266,6 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         sunsetting = false;
         activeInterestIndex = INTEREST_PRECISION;
         lastActiveIndexUpdate = block.timestamp;
-    }
-
-    function notifyRegisteredId(uint256[] calldata _assignedIds) external returns (bool) {
-        require(msg.sender == address(vault));
-        require(emissionId.debt == 0, "Already assigned");
-        uint256 length = _assignedIds.length;
-        require(length == 2, "Incorrect ID count");
-        emissionId = EmissionId({debt: uint16(_assignedIds[0]), minting: uint16(_assignedIds[1])});
-        periodFinish = uint32(((block.timestamp / 1 weeks) + 1) * 1 weeks);
-
-        return true;
     }
 
     /**
@@ -292,18 +286,19 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
      * @param _priceFeedAddress Price feed address
      */
     function setPriceFeed(address _priceFeedAddress) external onlyOwner {
+        // @audit we need to research a proper price feed
         priceFeed = IPriceFeed(_priceFeedAddress);
     }
 
     /**
-     * @notice Starts sunsetting a collateral
+     * @notice Starts sunsetting a collateral (a trove manager)
      *         During sunsetting only the following are possible:
      *            1) Disable collateral handoff to SP
      *            2) Greatly Increase interest rate to incentivize redemptions
      *            3) Remove redemptions fees
      *            4) Disable new loans
      *     @dev IMPORTANT: When sunsetting a collateral altogether this function should be called on
-     *                     all TM linked to that collateral as well as `StabilityPool.startCollateralSunset`
+     *                     all TM linked to that collateral as well as `StabilityPool.startCollateralSunset`  // review this is important
      */
     function startSunset() external onlyOwner {
         sunsetting = true;
@@ -365,11 +360,23 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         MCR = _MCR;
     }
 
+    // @notice collects aUSD interests towards the feeReceiver
     function collectInterests() external {
         uint256 interestPayableCached = interestPayable;
         require(interestPayableCached > 0, "Nothing to collect");
-        debtToken.mint(ALTHEA_CORE.feeReceiver(), interestPayableCached);
         interestPayable = 0;
+        // @audit debtTokens minted, not transferred ... where are they comming from?
+        debtToken.mint(ALTHEA_CORE.feeReceiver(), interestPayableCached);
+    }
+
+    function depositRewards(address token, uint256 amount) external {
+        // review rewards are proportional to the aUSD debt sustained at a given moment
+        // review we need to track rewards per aUSD, and update everytime the aUSD debt changes. Perhaps ignoring interests...
+        // todo
+    }
+
+    function claimRewards(address token) external {
+        // todo
     }
 
     // --- Getters ---
@@ -379,17 +386,21 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         if (address(_priceFeed) == address(0)) {
             _priceFeed = IPriceFeed(ALTHEA_CORE.priceFeed());
         }
-        return _priceFeed.fetchPrice(address(collateralToken));
+        return _priceFeed.fetchPrice(address(collateralToken)); // review the price units of this oracle. [collateral/USD] ?
     }
 
     function getWeekAndDay() public view returns (uint256, uint256) {
+        // review if we need this function
         uint256 duration = (block.timestamp - startTime);
         uint256 week = duration / 1 weeks;
         uint256 day = (duration % 1 weeks) / 1 days;
         return (week, day);
     }
 
+    /// @notice totalMints refers to redemptions  (depositing aUSD in exchange for any collateral)
     function getTotalMints(uint256 week) external view returns (uint32[7] memory) {
+        // review why do we need the mints? what are the mints? we probably don't need them "per week"
+        // @audit not used anywhere else in the protocol ...
         return totalMints[week];
     }
 
@@ -406,6 +417,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     function getTroveStake(address _borrower) external view returns (uint256) {
+        // @audit what is the stake?
         return Troves[_borrower].stake;
     }
 
@@ -420,7 +432,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
 
     /**
      * @notice Get the total and pending collateral and debt amounts for a trove
-     *     @dev Used by the liquidation manager
+     *     @dev Used by the liquidation manager ... @audit very gas costly ...
      */
     function getEntireDebtAndColl(address _borrower)
         public
@@ -458,6 +470,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     function getEntireSystemBalances() external returns (uint256, uint256, uint256) {
+        // @audit remember that debtToken is aUSD, not USD. In depeg situations this could be very risky
         return (getEntireSystemColl(), getEntireSystemDebt(), fetchPrice());
     }
 
@@ -846,20 +859,17 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         uint256 amount = _claimReward(msg.sender);
 
         if (amount > 0) {
-            vault.transferAllocatedTokens(msg.sender, receiver, amount);
+            // vault.transferAllocatedTokens(msg.sender, receiver, amount);
+            // todo review the rewards logic without being dependant on the vault. This contract should receive oTHEA and
         }
         emit RewardClaimed(msg.sender, receiver, amount);
         return amount;
     }
 
-    function vaultClaimReward(address claimant, address) external returns (uint256) {
-        require(msg.sender == address(vault));
-
-        return _claimReward(claimant);
-    }
-
     function _claimReward(address account) internal returns (uint256) {
-        require(emissionId.debt > 0, "Rewards not active");
+        // @audit make a rewards system that is not dependent on the emissions crap
+        // require(emissionId.debt > 0, "Rewards not active");  // @audit can we remove this?
+
         // update active debt rewards
         _applyPendingRewards(account);
         uint256 amount = storedPendingReward[account];
@@ -927,6 +937,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     function _updateRewardIntegral(uint256 supply) internal returns (uint256 integral) {
+        // review if this function can be removed completely
+
         uint256 _periodFinish = periodFinish;
         uint256 updated = _periodFinish;
         if (updated > block.timestamp) updated = block.timestamp;
@@ -939,40 +951,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
                 rewardIntegral = integral;
             }
         }
-        _fetchRewards(_periodFinish);
+        // @audit these were oTHEA rewards pulled from the vault . Not needed anymore
+        // _fetchRewards(_periodFinish);
 
         return integral;
-    }
-
-    function _fetchRewards(uint256 _periodFinish) internal {
-        EmissionId memory id = emissionId;
-        if (id.debt == 0) return;
-        uint256 currentWeek = getWeek();
-        if (currentWeek < (_periodFinish - startTime) / 1 weeks) return;
-        uint256 previousWeek = (_periodFinish - startTime) / 1 weeks - 1;
-
-        // active debt rewards
-        uint256 amount = vault.allocateNewEmissions(id.debt);
-        if (block.timestamp < _periodFinish) {
-            uint256 remaining = _periodFinish - block.timestamp;
-            amount += remaining * rewardRate;
-        }
-        rewardRate = uint128(amount / REWARD_DURATION);
-        lastUpdate = uint32(block.timestamp);
-        periodFinish = uint32(block.timestamp + REWARD_DURATION);
-
-        // minting rewards
-        amount = vault.allocateNewEmissions(id.minting);
-        uint256 reward = dailyMintReward[previousWeek];
-        if (reward > 0) {
-            uint32[7] memory totals = totalMints[previousWeek];
-            for (uint256 i = 0; i < 7; i++) {
-                if (totals[i] == 0) {
-                    amount += reward;
-                }
-            }
-        }
-        dailyMintReward[currentWeek] = amount / 7;
     }
 
     // --- Trove Adjustment functions ---
@@ -985,8 +967,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         address _upperHint,
         address _lowerHint,
         bool _isRecoveryMode
-    ) external whenNotPaused returns (uint256 stake, uint256 arrayIndex) {
-        _requireCallerIsBO();
+    ) external whenNotPaused onlyBorrowingOperator returns (uint256 stake, uint256 arrayIndex) {
         require(!sunsetting, "Cannot open while sunsetting");
         uint256 supply = totalActiveDebt;
 
@@ -1026,8 +1007,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         address _lowerHint,
         address _borrower,
         address _receiver
-    ) external returns (uint256, uint256, uint256) {
-        _requireCallerIsBO();
+    ) external onlyBorrowingOperator returns (uint256, uint256, uint256) {
         if (_isCollIncrease || _isDebtIncrease) {
             require(!paused, "Collateral Paused");
             require(!sunsetting, "Cannot increase while sunsetting");
@@ -1070,8 +1050,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         return (newColl, newDebt, newStake);
     }
 
-    function closeTrove(address _borrower, address _receiver, uint256 collAmount, uint256 debtAmount) external {
-        _requireCallerIsBO();
+    function closeTrove(address _borrower, address _receiver, uint256 collAmount, uint256 debtAmount)
+        external
+        onlyBorrowingOperator
+    {
         require(Troves[_borrower].status == Status.active, "Trove closed or does not exist");
         _removeStake(_borrower);
         _closeTrove(_borrower, Status.closedByOwner);
@@ -1152,10 +1134,8 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
     }
 
     // Updates the baseRate state variable based on time elapsed since the last redemption or debt borrowing operation.
-    function decayBaseRateAndGetBorrowingFee(uint256 _debt) external returns (uint256) {
-        _requireCallerIsBO();
+    function decayBaseRateAndGetBorrowingFee(uint256 _debt) external onlyBorrowingOperator returns (uint256) {
         uint256 rate = _decayBaseRate();
-
         return _calcBorrowingFee(_calcBorrowingRate(rate), _debt);
     }
 
@@ -1170,8 +1150,11 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         return decayedBaseRate;
     }
 
-    function applyPendingRewards(address _borrower) external returns (uint256 coll, uint256 debt) {
-        _requireCallerIsBO();
+    function applyPendingRewards(address _borrower)
+        external
+        onlyBorrowingOperator
+        returns (uint256 coll, uint256 debt)
+    {
         return _applyPendingRewards(_borrower);
     }
 
@@ -1228,7 +1211,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
 
     // Update borrower's stake based on their latest collateral value
     function _updateStakeAndTotalStakes(Trove storage t) internal returns (uint256) {
-        uint256 newStake = _computeNewStake(t.coll);
+        uint256 newStake = _computeNewStake(t.coll); // @audit shouldn't this be updated AFTER updating totalStakes?
         uint256 oldStake = t.stake;
         t.stake = newStake;
         uint256 newTotalStakes = totalStakes - oldStake + newStake;
@@ -1252,7 +1235,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
              * rewards would’ve been emptied and totalCollateralSnapshot would be zero too.
              */
             uint256 totalStakesSnapshotCached = totalStakesSnapshot;
-            assert(totalStakesSnapshotCached > 0);
+            assert(totalStakesSnapshotCached > 0); // @audit shouldn't it assert that totalCollateralSnapshotCached > 0 instead? Why do you care about the numerator?
             stake = (_coll * totalStakesSnapshotCached) / totalCollateralSnapshotCached;
         }
         return stake;
@@ -1260,8 +1243,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
 
     // --- Liquidation Functions ---
 
-    function closeTroveByLiquidation(address _borrower) external {
-        _requireCallerIsLM();
+    function closeTroveByLiquidation(address _borrower) external onlyLiquidationManager {
         uint256 debtBefore = Troves[_borrower].debt;
         _removeStake(_borrower);
         _closeTrove(_borrower, Status.closedByLiquidation);
@@ -1269,8 +1251,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         emit TroveUpdated(_borrower, 0, 0, 0, TroveManagerOperation.liquidate);
     }
 
-    function movePendingTroveRewardsToActiveBalances(uint256 _debt, uint256 _collateral) external {
-        _requireCallerIsLM();
+    function movePendingTroveRewardsToActiveBalances(uint256 _debt, uint256 _collateral)
+        external
+        onlyLiquidationManager
+    {
         _movePendingTroveRewardsToActiveBalance(_debt, _collateral);
     }
 
@@ -1281,8 +1265,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         totalActiveCollateral += _collateral;
     }
 
-    function addCollateralSurplus(address borrower, uint256 collSurplus) external {
-        _requireCallerIsLM();
+    function addCollateralSurplus(address borrower, uint256 collSurplus) external onlyLiquidationManager {
         surplusBalances[borrower] += collSurplus;
     }
 
@@ -1293,8 +1276,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         uint256 _collSurplus,
         uint256 _debtGasComp,
         uint256 _collGasComp
-    ) external {
-        _requireCallerIsLM();
+    ) external onlyLiquidationManager {
         // redistribute debt and collateral
         _redistributeDebtAndColl(_debt, _coll);
 
@@ -1371,8 +1353,10 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
         debtToken.mint(account, debtAmount);
     }
 
-    function decreaseDebtAndSendCollateral(address account, uint256 debt, uint256 coll) external {
-        _requireCallerIsLM();
+    function decreaseDebtAndSendCollateral(address account, uint256 debt, uint256 coll)
+        external
+        onlyLiquidationManager
+    {
         _decreaseDebt(account, debt);
         _sendCollateral(account, coll);
     }
@@ -1384,8 +1368,7 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
 
     // --- Balances and interest ---
 
-    function updateBalances() external {
-        _requireCallerIsLM();
+    function updateBalances() external onlyLiquidationManager {
         _updateBalances();
     }
 
@@ -1425,15 +1408,5 @@ contract TroveManager is AltheaBase, AltheaOwnable, SystemStart {
             currentInterestIndex =
                 currentInterestIndex + Math.mulDiv(currentInterestIndex, interestFactor, INTEREST_PRECISION);
         }
-    }
-
-    // --- Requires ---
-
-    function _requireCallerIsBO() internal view {
-        require(msg.sender == borrowerOperationsAddress, "Caller not BO");
-    }
-
-    function _requireCallerIsLM() internal view {
-        require(msg.sender == liquidationManager, "Not Liquidation Manager");
     }
 }
