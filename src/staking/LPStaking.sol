@@ -5,13 +5,16 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "../dependencies/AltheaOwnable.sol";
 
 /**
  * @title Althea LP Staking
  
     * @notice This contract allows users to stake LP tokens to earn THEA rewards.
  */
-contract LPStaking is AltheaOwnable, SystemStart {
+contract LPStaking is AltheaOwnable {
+    using SafeERC20 for IERC20;
+
     address public immutable lpToken;
     address public immutable rewardToken;
 
@@ -30,7 +33,11 @@ contract LPStaking is AltheaOwnable, SystemStart {
         uint256 rewards;
     }
 
-    constructor(address _lpTokenAddress, address _rewardToken) AltheaOwnable() SystemStart() {
+    constructor(
+        address _altheaCoreAddress,
+        address _lpTokenAddress,
+        address _rewardToken
+    ) AltheaOwnable(_altheaCoreAddress) {
         lpToken = _lpTokenAddress;
         rewardToken = _rewardToken;
     }
