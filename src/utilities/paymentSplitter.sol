@@ -81,11 +81,13 @@ contract AltheaPaymentSplitter is ReentrancyGuard {
             if (address(to).code.length > 0) {
                 emit NativeTokenSkippedToContract(to, amount);
             } else {
-                // intentionally using send() here, as we don't want the call 
+                // intentionally using send() here, as we don't want the call
                 // to revert DoSing the other payees. This payee losses his payement.
                 // If an EIP changed the gas configs, a new splitter contract can be deployed
                 (bool success) = payable(to).send(amount);
-                {success;} // just to silence warnings
+                {
+                    success;
+                } // just to silence warnings
                 emit NativeTokensSent(to, amount);
             }
         } else {
