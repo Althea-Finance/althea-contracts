@@ -7,9 +7,9 @@
 
 ### [`33_000_000` THEA] to `AllocationVesting` contract:
 - `20_000_000` 	from Core contributors  			[6 month cliff  + 24 month linear vesting]
-- `8_000_000` 	from Treasury (minus liquidity) 	[24 month linear vesting]  (`10_000_000` - `2_000_000` for liquidity)
+- `7_500_000` 	from Treasury (minus liquidity) 	[24 month linear vesting]  (`10_000_000` - `2_000_000` for liquidity)
 - `2_500_000` 	from Advisors						[3 month cliff  + 24 month linear vesting]
-- `2_500_000` 	from Early supporters 				[20% TGE + 80% 12 month linear vesting]
+- `3_000_000` 	from Early supporters 				[20% TGE + 80% 12 month linear vesting]
 
 ### [`2_000_000` THEA] to Treasury for liquidity 
 - `2_000_000` 	to Treasury multisig that will add liquidity

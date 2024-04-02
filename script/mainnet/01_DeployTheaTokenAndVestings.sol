@@ -16,16 +16,16 @@ contract AltheaTokenDeployment is Script {
 
     // layer zero configs for THEA token
     uint256 constant LAYER_ZERO_ENDPOINT_ID = 30151;
-    address constant LAYER_ZERO_METIS_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
+    address constant LAYER_ZERO_METIS_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;  // verified
     uint8 constant LAYER_ZERO_SHARED_DECIMALS = 6; // standard shared decimals for ERC20s with 18 decimals
 
     // Hercules IDO configuration
     address constant HERCULES_IDO_ADDRESS = 0x4e9fFEb0272703acF643037e04FdcF86079fCb80;  // validated
     uint256 constant HERCULES_IDO_THEA_ALLOCATION = 6_000_000 * 1e18;
     uint256 constant HERCULES_IDO_RTHEA_ALLOCATION = 9_000_000 * 1e18;
-    uint256 constant THEA_TO_RTHEA_ALLOCATION_VESTING = 9_000_000 * 1e18;
 
     // other vestings / destinations
+    // includes the vestings of: Treasury, early supporters, core contributors, advisors
     uint256 constant THEA_TO_ALLOCATION_VESTING = 33_000_000 * 1e18;
 
     address constant VAULT_MULTISIG_ADDRESS = 0x517A3af3c8670dad0C884B7C001D9A0A40270643; // validated
@@ -91,8 +91,10 @@ contract AltheaTokenDeployment is Script {
     function transferTheaAndRTheaToHerculesIDO() internal {
         theaToken.mintTo(HERCULES_IDO_ADDRESS, HERCULES_IDO_THEA_ALLOCATION);
         rTheaToken.transfer(HERCULES_IDO_ADDRESS, HERCULES_IDO_RTHEA_ALLOCATION);
-        theaToken.mintTo(address(rTheaAllocationVesting), THEA_TO_RTHEA_ALLOCATION_VESTING);
+        theaToken.mintTo(address(rTheaAllocationVesting), HERCULES_IDO_RTHEA_ALLOCATION);
     }
+
+    // the ones below are missing
 
     function mintTheaToAllocationVesting() internal {
         theaToken.mintTo(address(allocationVesting), THEA_TO_ALLOCATION_VESTING);
