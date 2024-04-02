@@ -24,12 +24,10 @@ contract LPStaking is AltheaOwnable {
 
     mapping(address => Stake) public stakes;
 
-    uint256 public rewardsBalance;
-
     struct Stake {
         address user;
         uint256 stakedLp;
-        uint256 rewardsPerLpToken;
+        uint256 claimedPerLpToken;
         uint256 rewards;
     }
 
@@ -53,12 +51,10 @@ contract LPStaking is AltheaOwnable {
         // update rewards
         uint256 rewards = _claimableRewards(msg.sender);
         userStake.rewards = rewards;
-        rewardsBalance -= rewards;
 
         userStake.stakedLp += amount;
         totalStakedLp += amount;
-        globalRewardsPerLpToken = rewardsBalance / totalStakedLp;
-        userStake.rewardsPerLpToken = globalRewardsPerLpToken;
+        userStake.claimedPerLpToken = globalRewardsPerLpToken;
         IERC20(lpToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
@@ -71,19 +67,16 @@ contract LPStaking is AltheaOwnable {
         // update rewards
         uint256 rewards = _claimableRewards(msg.sender);
         userStake.rewards = rewards;
-        rewardsBalance -= rewards;
 
-        userStake.stakedLp -= amount;
-        totalStakedLp -= amount;
-        globalRewardsPerLpToken = rewardsBalance / totalStakedLp;
-        userStake.rewardsPerLpToken = globalRewardsPerLpToken;
+        userStake.stakedLp += amount;
+        totalStakedLp += amount;
+        userStake.claimedPerLpToken = globalRewardsPerLpToken;
         IERC20(lpToken).safeTransfer(msg.sender, amount);
     }
 
     function depositRewards(uint256 amount) external {
         require(amount > 0, "cannot deposit 0 rewards");
-        rewardsBalance += amount;
-        if (totalStakedLp > 0) globalRewardsPerLpToken = rewardsBalance / totalStakedLp;
+        if (totalStakedLp > 0) globalRewardsPerLpToken += amount / totalStakedLp;
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
@@ -91,10 +84,8 @@ contract LPStaking is AltheaOwnable {
         Stake storage userStake = stakes[msg.sender];
         uint256 rewards = _claimableRewards(msg.sender);
         require(rewards > 0, "No rewards to claim");
-        require(rewards < rewardsBalance, "Not enough rewards in the contract");
         userStake.rewards = 0;
-        userStake.rewardsPerLpToken = globalRewardsPerLpToken;
-        rewardsBalance -= rewards;
+        userStake.claimedPerLpToken = globalRewardsPerLpToken;
         IERC20(rewardToken).safeTransfer(msg.sender, rewards);
     }
 
@@ -104,6 +95,6 @@ contract LPStaking is AltheaOwnable {
 
     function _claimableRewards(address user) internal view returns (uint256) {
         Stake storage userStake = stakes[user];
-        return userStake.rewards + userStake.stakedLp * (globalRewardsPerLpToken - userStake.rewardsPerLpToken);
+        return userStake.rewards + userStake.stakedLp * (globalRewardsPerLpToken - userStake.claimedPerLpToken);
     }
 }
