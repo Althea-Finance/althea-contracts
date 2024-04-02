@@ -9,8 +9,8 @@ import "../dependencies/AltheaOwnable.sol";
 
 /**
  * @title Althea LP Staking
- 
-    * @notice This contract allows users to stake LP tokens to earn THEA rewards.
+ *
+ * @notice This contract allows users to stake LP tokens to earn THEA rewards.
  */
 contract LPStaking is AltheaOwnable {
     using SafeERC20 for IERC20;
@@ -25,17 +25,14 @@ contract LPStaking is AltheaOwnable {
     mapping(address => Stake) public stakes;
 
     struct Stake {
-        address user;
         uint256 stakedLp;
         uint256 claimedPerLpToken;
         uint256 rewards;
     }
 
-    constructor(
-        address _altheaCoreAddress,
-        address _lpTokenAddress,
-        address _rewardToken
-    ) AltheaOwnable(_altheaCoreAddress) {
+    constructor(address _altheaCoreAddress, address _lpTokenAddress, address _rewardToken)
+        AltheaOwnable(_altheaCoreAddress)
+    {
         lpToken = _lpTokenAddress;
         rewardToken = _rewardToken;
     }
@@ -44,9 +41,6 @@ contract LPStaking is AltheaOwnable {
         require(amount > 0, "Cannot stake 0");
 
         Stake storage userStake = stakes[msg.sender];
-        if (userStake.user == address(0)) {
-            userStake.user = msg.sender;
-        }
 
         // update rewards
         uint256 rewards = _claimableRewards(msg.sender);

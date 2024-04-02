@@ -5,6 +5,7 @@ pragma solidity 0.8.19;
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AltheaOwnable} from "src/dependencies/AltheaOwnable.sol";
+import {RewardsFramework} from "src/dependencies/RewardsFramework.sol";
 
 // Information of a single lock (an account can have multiple locks)
 struct Lock {
@@ -47,14 +48,16 @@ library LockOperations {
 /// @dev    An address can have multiple locks
 ///         Once created, a lock can be extended in time (postpone the deadline), but not in balance.
 ///         Any address can terminate a lock which deadline has passed, removing his power from totalPower, giving more weight to the remaining.
-contract Locker is AltheaOwnable {
+
+///         This contract implements the RewardsFramework. The "assets" here is the power, and the rewards are the THEA distributed on distributeEmissions()
+contract Locker is AltheaOwnable, RewardsFramework {
     using SafeERC20 for IERC20;
     using LockOperations for Lock;
 
-    // minimum 1 THEA needs to be locked  @audit make sure this is true also at withdrawals
+    // minimum 1 THEA needs to be locked. Must also hold when withdrawing tokens
     uint256 public constant MINIMUM_LOCK_BALANCE = 0.1e18;
 
-    // @audit perhaps allow these to be configurable
+    // @audit should we leave these configurable?
     uint8 public constant MINIMUM_WEEKS_TO_LOCK = 2;
     uint8 public constant MAXIMUM_WEEKS_TO_LOCK = 52;
 
@@ -66,11 +69,12 @@ contract Locker is AltheaOwnable {
 
     /// address of the token to lock. THEA token in this case
     IERC20 public lockToken;
+    /// address of the token in wihch emissions (rewards) are gonna be deposited (oTHEA)
+    IERC20 public emissionsToken;
 
-    // @audit update total stuff whenever a lock changes
     struct UserLockData {
         Lock[] locks;
-        uint256 totalPower; // total power from all locks. UNITS: (balance * nWeeks) // @audit parallel data stucture. review all instances
+        uint256 totalPower; // total power from all locks. UNITS: (balance * nWeeks)
     }
 
     // Lock information of each user
@@ -90,6 +94,7 @@ contract Locker is AltheaOwnable {
     error CannotBringDeadlineForward();
     error InvalidBalanceAfterWithdraw();
     error InvalidLockParameters(address account, uint256 index);
+    error NothingToClaim();
 
     event LockCreated(address indexed account, uint256 indexed index, uint256 amount, uint8 nWeeks);
     event CommitmentExtended(address indexed account, uint256 indexed index, uint8 nWeeks);
@@ -98,8 +103,11 @@ contract Locker is AltheaOwnable {
 
     ////////////////////////////////////////////////
 
-    constructor(address _lockTokenAddress, address _altheaCore) AltheaOwnable(_altheaCore) {
+    constructor(address _lockTokenAddress, address _emissionsTokenAddress, address _altheaCore)
+        AltheaOwnable(_altheaCore)
+    {
         lockToken = IERC20(_lockTokenAddress);
+        emissionsToken = IERC20(_emissionsTokenAddress);
     }
 
     /// @dev Reverts if `index` is too large for `account`
@@ -108,11 +116,18 @@ contract Locker is AltheaOwnable {
         _;
     }
 
+    /// @dev all functions that trigger a change in power need to be preceeded by an update in the rewards buffer
+    ///    This modifier is not probably the most gas-efficient, but helps keep the code organized. Easier to audit.
+    modifier bufferRewards(address account) {
+        _bufferRewards(account, userLocks[account].totalPower);
+        _;
+    }
+
     ////////////// EXTERNAL FUNCTIONS ////////////////
 
     /// @dev nWeeks commited has to be within the accepted range
     /// @dev small amounts are not accepted
-    function createLock(uint256 amount, uint8 nWeeks) external {
+    function createLock(uint256 amount, uint8 nWeeks) external bufferRewards(msg.sender) {
         if (amount < MINIMUM_LOCK_BALANCE) revert NotEnoughAmount();
         if (nWeeks < MINIMUM_WEEKS_TO_LOCK) revert LockPeriodTooShort();
         if (nWeeks > MAXIMUM_WEEKS_TO_LOCK) revert LockPeriodToolLong();
@@ -138,7 +153,7 @@ contract Locker is AltheaOwnable {
     /// @notice resets the startTime of the lock and adds the new commitedWeeks
     /// @dev if the new deadline is lower than the old one it reverts
     /// @param index The index in the user's array of locks to modify
-    function extendLock(uint256 index, uint8 nWeeks) external validLock(msg.sender, index) {
+    function extendLock(uint256 index, uint8 nWeeks) external validLock(msg.sender, index) bufferRewards(msg.sender) {
         if (nWeeks < MINIMUM_WEEKS_TO_LOCK) revert LockPeriodTooShort();
         if (nWeeks > MAXIMUM_WEEKS_TO_LOCK) revert LockPeriodToolLong();
 
@@ -172,7 +187,11 @@ contract Locker is AltheaOwnable {
     /// @notice allows withdrawing a lock before the lock.deadline.
     ///         However, it incurrs a fee proportional to the time remaining until deadline, counted from start time
     /// @dev    WARNING: if a user calls extendLock, the lockPeriodStartTime is reset, so the percentage fee paid would be almost 100%
-    function withdrawFromLockBeforeDeadline(uint256 amount, uint256 index) external validLock(msg.sender, index) {
+    function withdrawFromLockBeforeDeadline(uint256 amount, uint256 index)
+        external
+        validLock(msg.sender, index)
+        bufferRewards(msg.sender)
+    {
         Lock storage lock = userLocks[msg.sender].locks[index];
         uint256 deadline = lock.deadline();
 
@@ -202,7 +221,7 @@ contract Locker is AltheaOwnable {
 
     /// @notice terminates a lock, excluding it from future rewards, and sending the locked tokens to the original owner
     /// @dev anyone can terminate the lock of someone else, as long as the commirment date has passed
-    function terminateLock(address account, uint256 index) external validLock(account, index) {
+    function terminateLock(address account, uint256 index) external validLock(account, index) bufferRewards(account) {
         Lock storage lock = userLocks[account].locks[index];
         // msg.sender has no relevance here, anyone can terminate a lock, but assets go to the lock owner
         if (lock.deadline() > block.timestamp) revert CommitmentPeriodNotFinished();
@@ -224,6 +243,24 @@ contract Locker is AltheaOwnable {
 
         emit LockTerminated(account, index);
         lockToken.safeTransfer(account, lockBalance);
+    }
+
+    ///////// EMISSIONS (Rewards related) /////////////
+
+    function distributeEmissions(uint256 amountToDistribute) external {
+        // no harm in small amountToDistribute (or even 0)
+        // this function emits an event already with more info than what we have here
+        _registerDepositedRewards(amountToDistribute, totalPower);
+
+        emissionsToken.safeTransferFrom(msg.sender, address(this), amountToDistribute);
+    }
+
+    function claimRewardsFromEmissions() external bufferRewards(msg.sender) returns (uint256 claimed) {
+        // this function already emits an event, but does NOT handle token transfers
+        claimed = _registerClaim(msg.sender, userLocks[msg.sender].totalPower);
+        if (claimed == 0) revert NothingToClaim();
+
+        emissionsToken.safeTransfer(msg.sender, claimed);
     }
 
     //////////// VIEW //////////////
