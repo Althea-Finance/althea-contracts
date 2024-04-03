@@ -116,8 +116,8 @@ contract Locker is AltheaOwnable, RewardsFramework {
         _;
     }
 
-    /// @dev all functions that trigger a change in power need to be preceeded by an update in the rewards buffer
-    ///    This modifier is not probably the most gas-efficient, but helps keep the code organized. Easier to audit.
+    /// @dev all functions that trigger a change in `power` need to be preceeded by an update in the rewards buffer
+    ///     This is because the rewards system uses `power` as the asset that determines the shares of rewards for each account
     modifier bufferRewards(address account) {
         _bufferRewards(account, userLocks[account].totalPower);
         _;
