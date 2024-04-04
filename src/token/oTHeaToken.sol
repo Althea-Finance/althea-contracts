@@ -29,7 +29,7 @@ contract OTheaToken is ERC20 {
     string internal constant _SYMBOL = "oTHEA";
 
     /// oTHEA total supply is 100 million.
-    uint256 public constant MAX_TOTAL_SUPPLY = 100_000_000 * 1e18;
+    uint256 public constant MAX_TOTAL_SUPPLY = 100_000_000 * 1e18;  // @audit max == emissions (50% THEA)  (regulated by emission schedule anyways)
 
     /// This contract handles the redemption of oTHEA in exchange for THEA.
     address public immutable oTheaRedemptions;
